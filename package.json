@@ -1,0 +1,22 @@
+{
+  "autostart": false,
+  "entrypoints": [],
+  "type": "module",
+  "scripts": {
+    "clean": "rm -rf node_modules && (rm package-lock.json || true )&& rm -rf build",
+    "setup": "(npm run clean || true) && npm install && tsc",
+    "pack": "tar -czf /tmp/$npm_package_name.tar.gz *"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.3.59",
+    "@types/node": "^20.4.2",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.1.0"
+  },
+  "dependencies": {
+    "vapi": "http://172.16.210.107/vapi.tar.gz",
+    "vscript": "http://172.16.210.107/vscript.tar.gz",
+    "vutil": "http://172.16.210.107/vutil.tar.gz",
+    "zod": "^3.24.4"
+  }
+}
