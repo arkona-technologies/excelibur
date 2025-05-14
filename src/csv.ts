@@ -8,7 +8,9 @@ export function parse_csv<T extends z.ZodRawShape>(
 ): z.infer<typeof schema>[] {
   const is_schema = (row: string[], schema: z.ZodObject<T>) => {
     const keys = Object.keys(schema.shape);
-    return row.every((maybe_key) => keys.includes(maybe_key));
+    const matches = keys.filter((k)=> row.includes(k)).length;
+    console.log(matches);
+    return matches > 3; // ehhh
   };
   row_sep ??= "\n";
   const parameter_mapping: Record<string, number> = {};
