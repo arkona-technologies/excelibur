@@ -3,12 +3,13 @@ import { parse_csv } from "./csv.js";
 import * as VAPI from "vapi";
 
 import fs from "fs";
-import { dKeyword, Duration, enforce_nonnull, VSocket } from "vscript";
+import { dKeyword, Duration, enforce, enforce_nonnull, VSocket } from "vscript";
 import { open_connection } from "./connection.js";
 import { base } from "./base.js";
 import { lock_to_genlock } from "vutil/rtp_receiver.js";
 import assert from "assert";
 import { video_ref } from "vutil";
+import { isIPv4 } from "net";
 
 async function prepare_madi_ins(
   madi_ins: z.infer<typeof ProcessingChainConfig>[],
@@ -167,9 +168,9 @@ const SenderConfig = z.object({
   name: z.string(),
   stream_type: StreamType,
   primary_destination_address: z.string().ip(),
-  secondary_destination_address: z.string().ip(),
+  secondary_destination_address: z.string().ip().nullable(),
   primary_destination_port: z.coerce.number().int(),
-  secondary_destination_port: z.coerce.number().int(),
+  secondary_destination_port: z.coerce.number().int().nullable(),
   payload_type: z.coerce.number().int(),
 });
 
@@ -198,16 +199,6 @@ const VideoFormat = z.enum(["12G", "6G", "3G", "1.5G"]);
 const AudioFormat = z.enum(["p0_125", ...VAPI.Audio.Enums.PacketTime]);
 
 const ProcessorType = z.enum(["CC1D", "CC3D", "VideoDelay", "AudioDelay"]);
-const dummy_timed_source = () => {
-  return vm.i_o_module?.output.row(0).sdi.v_src;
-};
-
-const dummy_essence = () => {
-  return vm.color_correction!.cc3d.row(0).v_src;
-};
-type VSrcType =
-  | ReturnType<typeof dummy_timed_source>
-  | ReturnType<typeof dummy_essence>;
 
 const ProcessingChainConfig = z.object({
   name: z.string(),
@@ -243,6 +234,7 @@ async function set_vsrc(
     `[${vm.raw.identify()}] ${kwl}: setting source to ${source.raw.kwl}`,
   );
   if (kwl.includes("sdi") || kwl.includes("transmitter")) {
+    // i mean why not
     return await target_command.write(video_ref(source));
   } else {
     return await target_command.write(source);
@@ -312,6 +304,10 @@ async function setup_processing_chain_video(
     });
     const out = await delay?.outputs.create_row();
     await out?.t_src.command.write(vm.genlock!.instances.row(0).backend.output);
+    await out?.delay.offset.command.write({
+      variant: "Frames",
+      value: { frames: config.delay_frames },
+    }).catch();
     await set_vsrc(target.command, out!.video);
     target = delay?.inputs.row(0).v_src;
   }
@@ -330,16 +326,33 @@ async function setup_processing_chain_video(
       case "PLAYER-AUDIO":
       case "IP-AUDIO":
       case "MADI":
-        assert(false);
+        assert(
+          false,
+          "Audio Only Output shouldn't be a target for video processing",
+        );
     }
   };
   let source = enforce_nonnull(find_source()); // type this out...
   await set_vsrc(target.command, source);
 }
 async function setup_processing_chain_audio(
-  _vm: VAPI.AT1130.Root,
-  _config: z.infer<typeof ProcessingChainConfig>,
-) {}
+  vm: VAPI.AT1130.Root,
+  config: z.infer<typeof ProcessingChainConfig>,
+) {
+  const find_target = () => {
+    switch (config.output_type) {
+      case "MADI":
+      case "SDI":
+        return vm.i_o_module?.output.row(config.output_id).a_src;
+      case "IP-AUDIO":
+        return vm.r_t_p_transmitter?.audio_transmitters.row(config.output_id)
+          .a_src;
+      case "IP-VIDEO":
+        assert(false);
+    }
+  };
+  let target: any = find_target();
+}
 async function setup_processing_chain(
   vm: VAPI.AT1130.Root,
   config: z.infer<typeof ProcessingChainConfig>,
@@ -380,6 +393,7 @@ async function setup_processing_chains(
     .filter((c) => c.output_type === "IP-AUDIO")
     .filter(unique_by("output_id"));
 
+  // set up necessary scaffolding for routing only; no  addresses/interfaces etc are set up!
   await prepare_audio_rx(rtp_audio_ins, vm);
   await prepare_video_rx(rtp_video_ins, vm);
   await prepare_video_players(video_players, vm);
@@ -398,13 +412,159 @@ async function setup_processing_chains(
   }
 }
 
-const file = fs.readFileSync(enforce_nonnull(process.env["CSV"]), "utf8");
-const config = parse_csv(file, ProcessingChainConfig);
+async function find_best_vifc(port: VAPI.AT1130.NetworkInterfaces.Port) {
+  const vifcs = await port.virtual_interfaces.rows();
+  for (const vifc of vifcs) {
+    const addresses = await vifc.ip_addresses.rows();
+    for (const masked_addr of addresses) {
+      const addr = await masked_addr.ip_address.read();
+      if (addr && isIPv4(addr)) return vifc;
+    }
+  }
+  return null;
+}
+
+async function apply_senders_config(
+  vm: VAPI.AT1130.Root,
+  config: z.infer<typeof SenderConfig>[],
+) {
+  for (const conf of config) {
+    const get_transmitter = () => {
+      switch (conf.stream_type) {
+        case "2110-20":
+        case "2110-40":
+        case "2042-20":
+        case "2022-6":
+        case "2110-22":
+          return vm.r_t_p_transmitter?.video_transmitters.create_row({
+            index: conf.id,
+            name: conf.label,
+            allow_reuse_row: true,
+          });
+        case "2110-30":
+          return vm.r_t_p_transmitter?.audio_transmitters.create_row({
+            index: conf.id,
+            name: conf.label,
+            allow_reuse_row: true,
+          });
+      }
+    };
+    const tx = enforce_nonnull(await get_transmitter());
+    let session = await tx.generic.hosting_session.status.read();
+    if (!(await tx.generic.hosting_session.status.read())) {
+      session = await vm.r_t_p_transmitter!.sessions.create_row({
+        name: `${conf.label}`,
+      });
+      await session?.interfaces.command.write({
+        primary: await find_best_vifc(vm.network_interfaces.ports.row(0)),
+        secondary: conf.secondary_destination_address
+          ? await find_best_vifc(vm.network_interfaces.ports.row(1))
+          : null,
+      });
+      await tx.generic.hosting_session.command.write(session);
+    }
+    enforce(!!session);
+    await session.active.command.write(false);
+    const get_ip_config = () => {
+      switch (conf.stream_type) {
+        case "2022-6":
+        case "2110-20":
+        case "2042-20":
+        case "2110-22":
+          return (tx as VAPI.AT1130.RTPTransmitter.VideoStreamerAsNamedTableRow)
+            .generic.ip_configuration.video;
+        case "2110-40":
+          return (tx as VAPI.AT1130.RTPTransmitter.VideoStreamerAsNamedTableRow)
+            .generic.ip_configuration.meta;
+        case "2110-30":
+          return (tx as VAPI.AT1130.RTPTransmitter.AudioStreamerAsNamedTableRow)
+            .generic.ip_configuration.media;
+      }
+    };
+    const ip_config = get_ip_config();
+    await ip_config.primary.dst_address.command.write(
+      `${conf.primary_destination_address}:${conf.primary_destination_port}`,
+    );
+    await ip_config.primary.header_settings.command.write({
+      ...(await ip_config.primary.header_settings.status.read()),
+      payload_type: conf.payload_type,
+    });
+    if (conf.secondary_destination_address) {
+      await ip_config.secondary.dst_address.command.write(
+        `${conf.secondary_destination_address}:${conf.secondary_destination_port ?? 9000}`,
+      );
+      await ip_config.secondary.header_settings.command.write({
+        ...(await ip_config.secondary.header_settings.status.read()),
+        payload_type: conf.payload_type,
+      });
+    }
+
+    function get_transport_format(): VAPI.AT1130.RTPTransmitter.VideoFormat {
+      switch (conf.stream_type) {
+        case "2022-6":
+          return { variant: "ST2022_6", value: {} };
+        case "2110-20":
+          return {
+            variant: "ST2110_20",
+            value: {
+              transmit_scheduler_uhd: true,
+              add_st2110_40: false,
+              packing_mode: "GPM",
+            },
+          };
+        case "2042-20":
+          return {
+            variant: "ST2042",
+            value: { add_st2110_40: false, compression: "C_4_44" },
+          };
+        case "2110-22":
+          return {
+            variant: "JPEG_XS",
+            value: {
+              add_st2110_40: false,
+              omit_mandatory_pre_header: false,
+              lvl_weight_mode: "visual_optimization",
+              compression: { variant: "Ratio", value: { ratio: 10 } },
+            },
+          };
+        case "2110-40":
+        case "2110-30":
+          assert(false);
+      }
+    }
+
+    if (tx instanceof VAPI.AT1130.RTPTransmitter.VideoStreamerAsNamedTableRow) {
+      if (conf.stream_type != "2110-30" && conf.stream_type != "2110-40")
+        await tx.configuration.transport_format.command.write(
+          get_transport_format(),
+        );
+      if (conf.stream_type === "2110-40") {
+        await tx.configuration.transport_format.command.write({
+          ...(await tx.configuration.transport_format.status.read()),
+          value: { add_st2110_40: true },
+        } as any);
+      }
+    }
+
+    session.active.command.write(true).catch();
+  }
+}
+
+const processors = fs.readFileSync(
+  enforce_nonnull(process.env["PROC"]),
+  "utf8",
+);
+const tx = fs.readFileSync(enforce_nonnull(process.env["TX"]), "utf8");
+// const rx = fs.readFileSync(enforce_nonnull(process.env["RX"]), "utf8");
+const processors_config = parse_csv(processors, ProcessingChainConfig);
+const tx_config = parse_csv(tx, SenderConfig);
+// const rx_config = parse_csv(rx, ReceiverConfig);
 const vm = (await open_connection(
   new URL(process.env["URL"] ?? "ws://127.0.0.1"),
 )) as VAPI.AT1130.Root;
 
 await base(vm);
-await setup_processing_chains(vm, config);
+await apply_senders_config(vm, tx_config);
+await setup_processing_chains(vm, processors_config);
 
 process.exit(0);
