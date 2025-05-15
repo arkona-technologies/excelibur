@@ -1,4 +1,5 @@
 import fastifyStatic from "@fastify/static";
+import FastifyMultipart from "@fastify/multipart";
 import * as VAPI from "vapi";
 import Fastify from "fastify";
 import path from "path";
@@ -12,8 +13,20 @@ import {
 import { apply_senders_config } from "./senders.js";
 import { setup_processing_chains } from "./processors.js";
 import { apply_receivers_config } from "./receivers.js";
-import { scrub } from "vutil";
 import { base } from "./base.js";
+import util from "util";
+import { pipeline } from "stream";
+import { enforce_nonnull } from "vscript";
+const pump = util.promisify(pipeline);
+
+function stream_to_string(stream: any): Promise<string> {
+  const chunks: any[] = [];
+  return new Promise((resolve, reject) => {
+    stream.on("data", (chunk: any) => chunks.push(Buffer.from(chunk)));
+    stream.on("error", (err: any) => reject(err));
+    stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+  });
+}
 
 const fastify = Fastify({
   //logger: true,
@@ -40,25 +53,35 @@ const vm = (await open_connection(
 fastify.register(fastifyStatic, {
   root: path.resolve("./web"),
 });
+fastify.register(FastifyMultipart);
 
 fastify.post("/sender-config", async (req, _res) => {
-  const tx_config = parse_csv(req.body as string, SenderConfig);
+  const maybe_csv = await stream_to_string(
+    enforce_nonnull(await req.file()).file,
+  );
+  const tx_config = parse_csv(maybe_csv, SenderConfig);
   apply_senders_config(vm, tx_config);
-  return 200;
+  return `Done`;
 });
 fastify.post("/receiver-config", async (req, _res) => {
-  const rx_config = parse_csv(req.body as string, ReceiverConfig);
+  const maybe_csv = await stream_to_string(
+    enforce_nonnull(await req.file()).file,
+  );
+  const rx_config = parse_csv(maybe_csv, ReceiverConfig);
   await apply_receivers_config(vm, rx_config);
-  return 200;
+  return `Done`;
 });
 fastify.post("/processor-config", async (req, _res) => {
+  const maybe_csv = await stream_to_string(
+    enforce_nonnull(await req.file()).file,
+  );
   const processors_config = parse_csv(
-    req.body as string,
+    maybe_csv,
     ProcessingChainConfig,
   );
   await base(vm);
   await setup_processing_chains(vm, processors_config);
-  return 200;
+  return `Done`;
 });
 fastify.listen({ port: 4242, host: "0.0.0.0" }, (err, addr) => {
   if (err) {
