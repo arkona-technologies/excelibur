@@ -3,10 +3,17 @@ import { parse_csv } from "./csv.js";
 import * as VAPI from "vapi";
 
 import fs from "fs";
-import { dKeyword, Duration, enforce, enforce_nonnull, VSocket } from "vscript";
+import {
+  dKeyword,
+  Duration,
+  enforce,
+  enforce_nonnull,
+  Timestamp,
+  VSocket,
+} from "vscript";
 import { open_connection } from "./connection.js";
 import { base } from "./base.js";
-import { lock_to_genlock } from "vutil/rtp_receiver.js";
+import { lock_to_genlock, max_video_capabilities } from "vutil/rtp_receiver.js";
 import assert from "assert";
 import { video_ref } from "vutil";
 import { isIPv4 } from "net";
@@ -107,16 +114,19 @@ async function prepare_video_rx(
       allow_reuse_row: true,
       index: conf.source_id,
     });
-    await rx.media_specific.capabilities.command.write({
-      read_speed: lock_to_genlock(rx),
-      supports_clean_switching: true,
-      jpeg_xs_caliber: null,
-      st2042_2_caliber: null,
-      supports_2022_6: true,
-      st2110_20_caliber: "ST2110_upto_3G",
-      supports_2110_40: true,
-      supports_uhd_sample_interleaved: false,
-    });
+    const maybe_caps = await rx.media_specific.capabilities.status.read();
+    if (!maybe_caps) {
+      await rx.media_specific.capabilities.command.write({
+        read_speed: lock_to_genlock(rx),
+        supports_clean_switching: true,
+        jpeg_xs_caliber: null,
+        st2042_2_caliber: null,
+        supports_2022_6: true,
+        st2110_20_caliber: "ST2110_upto_3G",
+        supports_2110_40: true,
+        supports_uhd_sample_interleaved: true,
+      });
+    }
     await rx.generic.initiate_readout_on.command.write("FirstStreamPresent");
   }
 }
@@ -177,9 +187,10 @@ const SenderConfig = z.object({
 const ReceiverConfig = z.object({
   id: z.coerce.number(),
   label: z.string(),
-  name: z.string(),
   stream_type: StreamType, // eh... but oh well
   sync: z.coerce.boolean().default(true),
+  uhd: z.coerce.boolean().optional().default(false),
+  channel_capacity: z.coerce.number().optional().default(16),
   switch_type: SwitchType,
 });
 
@@ -304,10 +315,16 @@ async function setup_processing_chain_video(
     });
     const out = await delay?.outputs.create_row();
     await out?.t_src.command.write(vm.genlock!.instances.row(0).backend.output);
-    await out?.delay.offset.command.write({
-      variant: "Frames",
-      value: { frames: config.delay_frames },
-    }).catch();
+    await out?.delay.offset.command
+      .write({
+        variant: "Frames",
+        value: { frames: config.delay_frames },
+      })
+      .catch((_e) =>
+        console.log(
+          `[${vm.raw.identify()}] video delay refuses to accept delay setting of ${config.delay_frames} frames; contact support via clemens@arkonatech.com`,
+        ),
+      );
     await set_vsrc(target.command, out!.video);
     target = delay?.inputs.row(0).v_src;
   }
@@ -422,6 +439,123 @@ async function find_best_vifc(port: VAPI.AT1130.NetworkInterfaces.Port) {
     }
   }
   return null;
+}
+
+async function apply_receivers_config(
+  vm: VAPI.AT1130.Root,
+  config: z.infer<typeof ReceiverConfig>[],
+) {
+  for (const conf of config) {
+    const get_receiver = () => {
+      switch (conf.stream_type) {
+        case "2110-20":
+        case "2110-40":
+        case "2042-20":
+        case "2022-6":
+        case "2110-22":
+          return vm.r_t_p_receiver?.video_receivers.create_row({
+            index: conf.id,
+            name: conf.label,
+            allow_reuse_row: true,
+          });
+        case "2110-30":
+          return vm.r_t_p_receiver?.audio_receivers.create_row({
+            index: conf.id,
+            name: conf.label,
+            allow_reuse_row: true,
+          });
+      }
+    };
+    const rx = enforce_nonnull(await get_receiver());
+    await rx.generic.initiate_readout_on.command.write("FirstStreamPresent");
+    let session = await rx.generic.hosting_session.status.read();
+    if (!session) {
+      session = await vm.r_t_p_receiver!.sessions.create_row({
+        name: `${conf.label}`,
+      });
+      await session?.interfaces.command.write({
+        primary: await find_best_vifc(vm.network_interfaces.ports.row(0)),
+        secondary: await find_best_vifc(vm.network_interfaces.ports.row(1)),
+      });
+      await rx.generic.hosting_session.command.write(session);
+    }
+    enforce(!!session);
+    await session.active.command.write(false);
+    console.log(
+      `[${vm.raw.identify()}] ${conf.label}: Setting Receiver settings to ${JSON.stringify(conf, null, 3)}`,
+    );
+    if (conf.switch_type == "Patch") {
+      await session.switch_type.command.write({
+        variant: conf.switch_type,
+        value: {},
+      });
+    } else {
+      await session.switch_type.command.write({
+        variant: conf.switch_type,
+        value: { switch_time: new Timestamp(1) },
+      });
+    }
+
+    await rx.generic.timing.safety_margin.command.write(
+      new Duration(500, "us"),
+    );
+    if (rx instanceof VAPI.AT1130.RTPReceiver.VideoReceiverAsNamedTableRow) {
+      type rx_caps = VAPI.AT1130.RTPReceiver.VideoCapabilities;
+      if (conf.uhd) {
+        await rx.media_specific.capabilities.command.write({
+          supports_2022_6: true,
+          read_speed: lock_to_genlock(rx),
+          st2110_20_caliber: "ST2110_singlelink_uhd",
+          supports_2110_40: true,
+          supports_clean_switching: true,
+          supports_uhd_sample_interleaved: true,
+          jpeg_xs_caliber:
+            conf.stream_type === "2110-22" ? "JPEG_XS_singlelink_uhd" : null,
+          st2042_2_caliber:
+            conf.stream_type === "2042-20" ? "ST2042_2_singlelink_uhd" : null,
+        });
+      } else {
+        await rx.media_specific.capabilities.command.write({
+          supports_2022_6: true,
+          read_speed: lock_to_genlock(rx),
+          st2110_20_caliber: "ST2110_upto_3G",
+          supports_2110_40: true,
+          supports_clean_switching: true,
+          supports_uhd_sample_interleaved: true,
+          jpeg_xs_caliber:
+            conf.stream_type == "2110-22" ? "JPEG_XS_upto_3G" : null,
+          st2042_2_caliber:
+            conf.stream_type == "2042-20" ? "ST2042_2_upto_3G" : null,
+        });
+      }
+
+      await session.active.command.write(false);
+      if (conf.sync) {
+        await rx.generic.timing.target.command.write({
+          variant: "TimeSource",
+          value: { t_src: vm.p_t_p_clock.output, use_rtp_timestamp: false },
+        });
+      } else {
+        await rx.generic.timing.target.command.write({
+          variant: "IngressPlusX",
+          value: { read_delay: new Duration(4, "ms") },
+        });
+      }
+    }
+    if (rx instanceof VAPI.AT1130.RTPReceiver.AudioReceiverAsNamedTableRow) {
+      await rx.media_specific.capabilities.command.write({
+        payload_limit: "AtMost1984Bytes",
+        read_speed: lock_to_genlock(rx),
+        channel_capacity: conf.channel_capacity,
+        supports_clean_switching: true,
+      });
+      await rx.generic.timing.target.command.write({
+        variant: "IngressPlusX",
+        value: { read_delay: new Duration(2, "ms") },
+      });
+    }
+    await session.active.command.write(true);
+  }
 }
 
 async function apply_senders_config(
@@ -555,15 +689,18 @@ const processors = fs.readFileSync(
   "utf8",
 );
 const tx = fs.readFileSync(enforce_nonnull(process.env["TX"]), "utf8");
-// const rx = fs.readFileSync(enforce_nonnull(process.env["RX"]), "utf8");
+const rx = fs.readFileSync(enforce_nonnull(process.env["RX"]), "utf8");
+
 const processors_config = parse_csv(processors, ProcessingChainConfig);
 const tx_config = parse_csv(tx, SenderConfig);
-// const rx_config = parse_csv(rx, ReceiverConfig);
+const rx_config = parse_csv(rx, ReceiverConfig);
+
 const vm = (await open_connection(
   new URL(process.env["URL"] ?? "ws://127.0.0.1"),
 )) as VAPI.AT1130.Root;
 
 await base(vm);
+await apply_receivers_config(vm, rx_config);
 await apply_senders_config(vm, tx_config);
 await setup_processing_chains(vm, processors_config);
 
