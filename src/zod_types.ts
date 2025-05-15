@@ -65,7 +65,7 @@ export const ProcessingChainConfig = z.object({
   video_format: VideoFormat.nullable().default(null),
   source_id: z.coerce.number().int("source_id needs to be an integer!"),
   lut_name: z.string().nullable().default(null),
-  delay_frames: z.coerce.number().int().nullable().default(null),
+  delay_ms: z.coerce.number().int().nullable().default(null),
   output_type: OutputType,
   output_id: z.coerce.number().int("output_id needs to be an integer!"),
 });

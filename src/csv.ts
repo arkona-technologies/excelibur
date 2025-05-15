@@ -9,7 +9,6 @@ export function parse_csv<T extends z.ZodRawShape>(
   const is_schema = (row: string[], schema: z.ZodObject<T>) => {
     const keys = Object.keys(schema.shape);
     const matches = keys.filter((k)=> row.includes(k)).length;
-    console.log(matches);
     return matches > 3; // ehhh
   };
   row_sep ??= "\n";
