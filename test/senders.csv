@@ -1,0 +1,4 @@
+id,label,name,stream_type,primary_destination_address,secondary_destination_address,primary_destination_port,secondary_destination_port,payload_type
+0,Test-tx-1,Test-name,2110-20,232.1.2.3,232.2.3.1,50020,51020,96
+1,Test-tx-2,Test-name2,2110-20,232.1.2.4,232.2.3.2,50021,51021,97
+2,Test-tx-3,Test-name3,2110-22,232.1.2.5,232.2.3.3,50022,51022,98
