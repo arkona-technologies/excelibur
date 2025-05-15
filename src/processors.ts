@@ -360,7 +360,7 @@ async function setup_processing_chain_audio(
   let source = enforce_nonnull(find_source()); // type this out...
   const shuffler_src = await shuffler.a_src.status.read();
   shuffler_src.fill(null);
-  for (const idx of range(0,80)) {
+  for (const idx of range(0, 80)) {
     shuffler_src[idx] = source.channels.reference_to_index(idx);
   }
   await shuffler.a_src.command.write(shuffler_src);
@@ -369,12 +369,15 @@ async function setup_processing_chain(
   vm: VAPI.AT1130.Root,
   config: z.infer<typeof ProcessingChainConfig>,
 ) {
+  console.log(
+    `[${vm.raw.identify()}] Setting up processing chain (${config.flow_type}) "${config.name}" from ${config.source_type}/${config.source_id} to ${config.output_type}/${config.output_id}`,
+  );
   if (
     config.source_type == "IP-VIDEO" ||
     config.source_type == "PLAYER-VIDEO" ||
     config.flow_type === "Video"
   ) {
-    await setup_processing_chain_video(vm, config).catch((_) => { });;
+    await setup_processing_chain_video(vm, config).catch((_) => { });
   }
   if (
     config.source_type == "IP-AUDIO" ||

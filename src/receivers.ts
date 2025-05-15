@@ -10,6 +10,7 @@ export async function apply_receivers_config(
   config: z.infer<typeof ReceiverConfig>[],
 ) {
   for (const conf of config) {
+    console.log(`[${vm.raw.identify()}] Applying sender-config @${conf.stream_type}/${conf.id} with label ${conf.label}`);
     const get_receiver = () => {
       switch (conf.stream_type) {
         case "2110-20":
