@@ -19,13 +19,11 @@ export async function apply_senders_config(
         case "2110-22":
           return vm.r_t_p_transmitter?.video_transmitters.create_row({
             index: conf.id,
-            name: conf.label,
             allow_reuse_row: true,
           });
         case "2110-30":
           return vm.r_t_p_transmitter?.audio_transmitters.create_row({
             index: conf.id,
-            name: conf.label,
             allow_reuse_row: true,
           });
       }
@@ -45,6 +43,7 @@ export async function apply_senders_config(
       await tx.generic.hosting_session.command.write(session);
     }
     enforce(!!session);
+    await tx.rename(conf.label);
     await session.active.command.write(false);
     const get_ip_config = () => {
       switch (conf.stream_type) {

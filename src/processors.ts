@@ -84,6 +84,7 @@ async function prepare_video_tx(
         ? "b12_0Gb"
         : "b3_0Gb",
     );
+    await tx.rename(conf.name);
   }
 }
 async function prepare_audio_tx(
@@ -95,6 +96,7 @@ async function prepare_audio_tx(
       allow_reuse_row: true,
       index: conf.output_id,
     });
+    await tx.rename(conf.name);
   }
 }
 
@@ -119,6 +121,7 @@ async function prepare_video_rx(
       supports_2110_40: true,
       supports_uhd_sample_interleaved: true,
     });
+    await rx.rename(conf.name);
   }
 }
 
@@ -139,6 +142,7 @@ async function prepare_audio_rx(
       payload_limit: "AtMost1984Bytes",
       supports_clean_switching: true,
     });
+    await rx.rename(conf.name);
   }
 }
 
@@ -184,10 +188,17 @@ async function setup_processing_chain_video(
     await cc3d?.reserve_uhd_resources.command.write(
       config.video_format == "12G" || config.video_format == "6G",
     );
+    const fallback_lut = "3-NBCU_HLG2SDR_DL_v1";
     try {
-      await cc3d?.lut_name.command.write(config.lut_name);
+      const has_lut = await fetch(`$http://{vm.raw.ip}/cube`)
+        .then((r) => r.json())
+        .then((j: any[]) => j.some((l) => l.name === config.lut_name))
+        .catch((_) => false);
+      await cc3d?.lut_name.command.write(
+        has_lut ? config.lut_name : fallback_lut,
+      );
     } catch (e) {
-      await cc3d?.lut_name.command.write("3-NBCU_HLG2SDR_DL_v1");
+      await cc3d?.lut_name.command.write(fallback_lut);
     }
     await target?.command.write(video_ref(cc3d?.output ?? null));
     await set_vsrc(target?.command, enforce_nonnull(cc3d?.output));

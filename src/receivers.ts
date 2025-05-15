@@ -19,18 +19,17 @@ export async function apply_receivers_config(
         case "2110-22":
           return vm.r_t_p_receiver?.video_receivers.create_row({
             index: conf.id,
-            name: conf.label,
             allow_reuse_row: true,
           });
         case "2110-30":
           return vm.r_t_p_receiver?.audio_receivers.create_row({
             index: conf.id,
-            name: conf.label,
             allow_reuse_row: true,
           });
       }
     };
     const rx = enforce_nonnull(await get_receiver());
+    await rx.rename(conf.label);
     await rx.generic.initiate_readout_on.command.write("FirstStreamPresent");
     let session = await rx.generic.hosting_session.status.read();
     if (!session) {
@@ -45,9 +44,6 @@ export async function apply_receivers_config(
     }
     enforce(!!session);
     await session.active.command.write(false);
-    console.log(
-      `[${vm.raw.identify()}] ${conf.label}: Setting Receiver settings to ${JSON.stringify(conf, null, 3)}`,
-    );
     if (conf.switch_type == "Patch") {
       await session.switch_type.command.write({
         variant: conf.switch_type,
