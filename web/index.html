@@ -14,72 +14,89 @@
         <p>A pure HTML example, without dependencies.</p>
       </hgroup>
     </header>
-    <main class='container'>
-      <div class="card">
-      <hgroup>
-        <h3>Upload CSV for Processors</h3>
-      </hgroup>
-      <form
-        id="proc"
-        hx-encoding="multipart/form-data"
-        hx-post="/processor-config"
-      >
-          <fieldset role='group'>
-        <input type="file" name="file" />
-        <button>Upload</button>
-        <progress id="progress" value="0" max="100"></progress>
-          </fieldset>
-      </form>
+    <main class="container">
+      <div class="grid">
+        <div>
+          <hgroup>
+            <h3>Upload CSV for Processors</h3>
+          </hgroup>
+        </div>
+        <div>
+          <form
+            id="proc"
+            hx-encoding="multipart/form-data"
+            hx-post="/processor-config"
+            hx-target="next p"
+          >
+            <fieldset role="group">
+              <input type="file" name="file" />
+              <button>Upload</button>
+            </fieldset>
+          </form>
+          <p>Status?</p>
+        </div>
       </div>
-      <div class="card">
-        <hgroup>
-        <h3>Upload CSV for Receivers</h3>
-        </hgroup>
-        <form
-          id="rx"
-          hx-encoding="multipart/form-data"
-          hx-post="/receiver-config"
-        >
-          <fieldset role='group'>
-          <input type="file" name="file" />
-          <button>Upload</button>
-          <progress id="progress" value="0" max="100"></progress>
-          </fieldset>
-        </form>
+
+      <div class="grid">
+        <div>
+          <hgroup>
+            <h3>Upload CSV for Receivers</h3>
+          </hgroup>
+        </div>
+        <div>
+          <form
+            id="rx"
+            hx-encoding="multipart/form-data"
+            hx-post="/receiver-config"
+            hx-target="next p"
+          >
+            <fieldset role="group">
+              <input type="file" name="file" />
+              <button>Upload</button>
+            </fieldset>
+          </form>
+          <p>Status?</p>
+        </div>
       </div>
-      <div class="card">
-        <hgroup>
-        <h3>Upload CSV for Senders</h3>
-        </hgroup>
-        <form
-          id="tx"
-          hx-encoding="multipart/form-data"
-          hx-post="/sender-config"
-        >
-          <fieldset role='group'>
-          <input type="file" name="file" />
-          <button>Upload</button>
-          <progress id="progress" value="0" max="100"></progress>
-          </fieldset>
-        </form>
+
+      <div class="grid">
+        <div>
+          <hgroup>
+            <h3>Upload CSV for Senders</h3>
+          </hgroup>
+        </div>
+        <div>
+          <form
+            id="tx"
+            hx-encoding="multipart/form-data"
+            hx-post="/sender-config"
+            hx-target="next p"
+          >
+            <fieldset role="group">
+              <input type="file" name="file" />
+              <button>Upload</button>
+            </fieldset>
+          </form>
+          <p>Status?</p>
+        </div>
       </div>
     </main>
-    <script>
-      htmx.on("#proc", "htmx:xhr:progress", function (evt) {
-        htmx
-          .find("#progress")
-          .setAttribute("value", (evt.detail.loaded / evt.detail.total) * 100);
-      });
-      htmx.on("#rx", "htmx:xhr:progress", function (evt) {
-        htmx
-          .find("#progress")
-          .setAttribute("value", (evt.detail.loaded / evt.detail.total) * 100);
-      });
-      htmx.on("#tx", "htmx:xhr:progress", function (evt) {
-        htmx
-          .find("#progress")
-          .setAttribute("value", (evt.detail.loaded / evt.detail.total) * 100);
-      });
-    </script>
+    <!-- <script> -->
+    <!--   htmx.on("#proc", "htmx:xhr:progress", function (evt) { -->
+    <!--     htmx -->
+    <!--       .find("#progress") -->
+    <!--       .setAttribute("value", (evt.detail.loaded / evt.detail.total) * 100); -->
+    <!--   }); -->
+    <!--   htmx.on("#rx", "htmx:xhr:progress", function (evt) { -->
+    <!--     htmx -->
+    <!--       .find("#progress") -->
+    <!--       .setAttribute("value", (evt.detail.loaded / evt.detail.total) * 100); -->
+    <!--   }); -->
+    <!--   htmx.on("#tx", "htmx:xhr:progress", function (evt) { -->
+    <!--     htmx -->
+    <!--       .find("#progress") -->
+    <!--       .setAttribute("value", (evt.detail.loaded / evt.detail.total) * 100); -->
+    <!--   }); -->
+    <!-- </script> -->
   </body>
 </html>

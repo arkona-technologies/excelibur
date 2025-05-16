@@ -14,11 +14,8 @@ import { apply_senders_config } from "./senders.js";
 import { setup_processing_chains } from "./processors.js";
 import { apply_receivers_config } from "./receivers.js";
 import { base } from "./base.js";
-import util from "util";
-import { pipeline } from "stream";
 import { enforce_nonnull } from "vscript";
-const pump = util.promisify(pipeline);
-
+import cors from "@fastify/cors";
 function stream_to_string(stream: any): Promise<string> {
   const chunks: any[] = [];
   return new Promise((resolve, reject) => {
@@ -33,12 +30,12 @@ const fastify = Fastify({
   bodyLimit: 1e6 /* ? */,
   caseSensitive: false,
 });
-fastify.addContentTypeParser("text/csv", function (_req, payload, done) {
+fastify.addContentTypeParser("text/csv", function(_req, payload, done) {
   let body = "";
-  payload.on("data", function (data) {
+  payload.on("data", function(data) {
     body += data;
   });
-  payload.on("end", function () {
+  payload.on("end", function() {
     try {
       done(null, body);
     } catch (e) {
@@ -54,6 +51,7 @@ fastify.register(fastifyStatic, {
   root: path.resolve("./web"),
 });
 fastify.register(FastifyMultipart);
+fastify.register(cors, { origin: "*" });
 
 fastify.post("/sender-config", async (req, _res) => {
   const maybe_csv = await stream_to_string(
@@ -75,10 +73,7 @@ fastify.post("/processor-config", async (req, _res) => {
   const maybe_csv = await stream_to_string(
     enforce_nonnull(await req.file()).file,
   );
-  const processors_config = parse_csv(
-    maybe_csv,
-    ProcessingChainConfig,
-  );
+  const processors_config = parse_csv(maybe_csv, ProcessingChainConfig);
   await base(vm);
   await setup_processing_chains(vm, processors_config);
   return `Done`;
