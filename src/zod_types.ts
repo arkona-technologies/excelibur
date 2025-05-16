@@ -66,6 +66,7 @@ export const ProcessingChainConfig = z.object({
   source_id: z.coerce.number().int("source_id needs to be an integer!"),
   lut_name: z.string().nullable().default(null),
   delay_ms: z.coerce.number().int().nullable().default(null),
+  splitter_phase: z.coerce.number().int().nullable(),
   output_type: OutputType,
   output_id: z.coerce.number().int("output_id needs to be an integer!"),
 });

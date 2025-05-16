@@ -159,7 +159,6 @@ async function setup_processing_chain_video(
       `[${vm.raw.identify()}] ${kwl}: setting source to ${source.raw.kwl}`,
     );
     if (kwl.includes("sdi") || kwl.includes("transmitter")) {
-      // i mean why not
       return await target_command.write(video_ref(source));
     } else {
       return await target_command.write(source);
@@ -179,6 +178,55 @@ async function setup_processing_chain_video(
   };
 
   let target: any = find_target(); // type this out...
+
+  const find_source = () => {
+    switch (config.source_type) {
+      case "IP-VIDEO":
+        return vm.r_t_p_receiver?.video_receivers.row(config.source_id)
+          .media_specific.output.video;
+      case "SDI":
+        return vm.i_o_module?.input.row(config.source_id).sdi.output.video;
+      case "SDI2SI":
+        return vm.i_o_module?.merger.row(0).output.row(0).video;
+      case "PLAYER-VIDEO":
+        return vm.re_play?.video.players.row(config.source_id).output.video;
+      case "PLAYER-AUDIO":
+      case "IP-AUDIO":
+      case "MADI":
+        assert(
+          false,
+          "Audio Only Output shouldn't be a target for video processing",
+        );
+    }
+  };
+
+  let source = enforce_nonnull(find_source()); // type this out...
+  const find_splitter = async (v_src: VAPI.AT1130.Video.Essence) => {
+    const splitters = await vm.splitter!.instances.rows();
+    for (const splitter of splitters) {
+      const v_src_split = await splitter.v_src.status.read();
+      if (v_src == v_src_split) return splitter;
+    }
+    return null;
+  };
+
+  if (config.splitter_phase) {
+    console.log(
+      `[${vm.raw.identify()}] ${config.name}: Using Splitter; exiting early`,
+    );
+    let maybe_splitter = await find_splitter(source);
+    if (!maybe_splitter) {
+      maybe_splitter = await vm.splitter!.instances.create_row({
+        name: `${shorten_label(config.name)}.SPL`,
+      });
+      await maybe_splitter.v_src.command.write(source);
+    }
+    await set_vsrc(
+      target.command,
+      maybe_splitter.outputs.row(config.splitter_phase % 4).output,
+    );
+    return;
+  }
 
   if (config.lut_name) {
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding CC3D...`);
@@ -200,9 +248,7 @@ async function setup_processing_chain_video(
     } catch (e) {
       await cc3d?.lut_name.command.write(fallback_lut);
     }
-    await target?.command.write(video_ref(cc3d?.output ?? null));
     await set_vsrc(target?.command, enforce_nonnull(cc3d?.output));
-
     target = cc3d?.v_src;
   }
 
@@ -212,7 +258,7 @@ async function setup_processing_chain_video(
       name: `${shorten_label(config.name)}.DLY`,
     });
     await delay?.capabilities.command.write({
-      delay_mode: "FramePhaser",
+      delay_mode: config.delay_ms < 40 ? "FramePhaser" : "FrameSync_Freeze",
       capacity: {
         variant: "Time",
         value: { time: new Duration(config.delay_ms, "ms") },
@@ -248,27 +294,6 @@ async function setup_processing_chain_video(
     target = delay?.inputs.row(0).v_src;
   }
 
-  const find_source = () => {
-    switch (config.source_type) {
-      case "IP-VIDEO":
-        return vm.r_t_p_receiver?.video_receivers.row(config.source_id)
-          .media_specific.output.video;
-      case "SDI":
-        return vm.i_o_module?.input.row(config.source_id).sdi.output.video;
-      case "SDI2SI":
-        return vm.i_o_module?.merger.row(0).output.row(0).video;
-      case "PLAYER-VIDEO":
-        return vm.re_play?.video.players.row(config.source_id).output.video;
-      case "PLAYER-AUDIO":
-      case "IP-AUDIO":
-      case "MADI":
-        assert(
-          false,
-          "Audio Only Output shouldn't be a target for video processing",
-        );
-    }
-  };
-  let source = enforce_nonnull(find_source()); // type this out...
   await set_vsrc(target.command, source);
 }
 async function setup_processing_chain_audio(
@@ -313,13 +338,13 @@ async function setup_processing_chain_audio(
     const delay = await vm.re_play?.audio.delays.create_row({
       name: `${shorten_label(config.name)}.DLY`,
     });
-    await delay?.capabilities.num_channels.command.write(16).catch((_) => { });
+    await delay?.capabilities.num_channels.command.write(16).catch((_) => {});
     await delay?.capabilities.capacity.command
       .write({
         variant: "Time",
         value: { time: new Duration(config.delay_ms, "ms") },
       })
-      .catch((_) => { });
+      .catch((_) => {});
     await delay?.num_outputs.write(1);
     await delay?.outputs
       .row(0)
@@ -377,14 +402,14 @@ async function setup_processing_chain(
     config.source_type == "PLAYER-VIDEO" ||
     config.flow_type === "Video"
   ) {
-    await setup_processing_chain_video(vm, config).catch((_) => { });
+    await setup_processing_chain_video(vm, config).catch((_) => {});
   }
   if (
     config.source_type == "IP-AUDIO" ||
     config.source_type == "PLAYER-AUDIO" ||
     config.flow_type === "Audio"
   ) {
-    await setup_processing_chain_audio(vm, config).catch((_) => { });
+    await setup_processing_chain_audio(vm, config).catch((_) => {});
   }
 }
 export async function setup_processing_chains(
