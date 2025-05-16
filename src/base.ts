@@ -4,9 +4,9 @@ import { setup_ptp } from "vutil/ptp.js";
 import { setup_sdi_io } from "vutil/sdi_connections.js";
 import { Duration } from "vscript";
 
-export async function base(vm: VAPI.AT1130.Root) {
+export async function base(vm: VAPI.AT1130.Root, ptp_domain?: number) {
   await scrub(vm, { kwl_whitelist: [/system.nmos/, /system.services/] });
-  await setup_ptp(vm, { ptp_domain: 127, locking_policy: "Locking" });
+  await setup_ptp(vm, { ptp_domain: ptp_domain??127, locking_policy: "Locking" });
   await setup_sdi_io(vm).catch((_) => {});
   await vm.r_t_p_receiver?.settings.clean_switching_policy.write("Whatever");
   await vm.r_t_p_receiver?.settings.reserved_bandwidth.write(8);

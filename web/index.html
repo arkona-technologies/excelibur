@@ -18,6 +18,28 @@
       <div class="grid">
         <div>
           <hgroup>
+            <h3>PTP Settings</h3>
+          </hgroup>
+        </div>
+        <div>
+          <form
+            id="ptp"
+            hx-post="/base-setup"
+            hx-target="next p"
+          >
+            <fieldset role="group">
+              <input type="number" name="domain" />
+              <button type="submit">Upload</button>
+              <img id="spinner" class="htmx-indicator" src="svg/bars.svg" />
+            </fieldset>
+          </form>
+          <p>Status?</p>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div>
+          <hgroup>
             <h3>Upload CSV for Processors</h3>
           </hgroup>
         </div>

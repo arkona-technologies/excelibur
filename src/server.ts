@@ -1,5 +1,6 @@
 import fastifyStatic from "@fastify/static";
 import FastifyMultipart from "@fastify/multipart";
+import FormBody from "@fastify/formbody";
 import * as VAPI from "vapi";
 import Fastify from "fastify";
 import path from "path";
@@ -30,6 +31,21 @@ const fastify = Fastify({
   bodyLimit: 1e6 /* ? */,
   caseSensitive: false,
 });
+
+fastify.addContentTypeParser(
+  "application/json",
+  { parseAs: "string" },
+  function (_req: any, body: any, done: any) {
+    try {
+      var json: any = JSON.parse(body);
+      done(null, json);
+    } catch (err: any) {
+      err.statusCode = 400;
+      done(err, undefined);
+    }
+  },
+);
+
 fastify.addContentTypeParser("text/csv", function (_req, payload, done) {
   let body = "";
   payload.on("data", function (data) {
@@ -51,6 +67,7 @@ fastify.register(fastifyStatic, {
   root: path.resolve("./web"),
 });
 fastify.register(FastifyMultipart);
+fastify.register(FormBody);
 fastify.register(cors, { origin: "*" });
 
 fastify.post("/sender-config", async (req, _res) => {
@@ -69,12 +86,17 @@ fastify.post("/receiver-config", async (req, _res) => {
   await apply_receivers_config(vm, rx_config);
   return `Done`;
 });
+fastify.post("/base-setup", {},async (_req : any, _res) => {
+  const domain = parseInt(_req.body.domain);
+  await base(vm,domain);
+  return "Done";
+});
+
 fastify.post("/processor-config", async (req, _res) => {
   const maybe_csv = await stream_to_string(
     enforce_nonnull(await req.file()).file,
   );
   const processors_config = parse_csv(maybe_csv, ProcessingChainConfig);
-  await base(vm);
   await setup_processing_chains(vm, processors_config);
   return `Done`;
 });
