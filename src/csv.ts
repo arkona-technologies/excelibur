@@ -17,7 +17,7 @@ export function parse_csv<T extends z.ZodRawShape>(
     .split(row_sep)
     .map((row) => row.split(",").flatMap((entry) => entry.trim()))
     .find((row_split) => is_schema(row_split, schema));
-  enforce(!!csv_header, "Need a csv header to determine parameter mapping!");
+  enforce(!!csv_header, "Need a valid csv header to determine parameter mapping!");
   csv_header.forEach((key, idx) => {
     parameter_mapping[key] = idx;
   });

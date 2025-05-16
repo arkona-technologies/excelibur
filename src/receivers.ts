@@ -10,7 +10,7 @@ export async function apply_receivers_config(
   config: z.infer<typeof ReceiverConfig>[],
 ) {
   for (const conf of config) {
-    console.log(`[${vm.raw.identify()}] Applying sender-config @${conf.stream_type}/${conf.id} with label ${conf.label}`);
+    console.log(`[${vm.raw.identify()}] Applying receiver-config @${conf.stream_type}/${conf.id} with label ${conf.label}`);
     const get_receiver = () => {
       switch (conf.stream_type) {
         case "2110-20":
@@ -61,7 +61,6 @@ export async function apply_receivers_config(
       new Duration(500, "us"),
     );
     if (rx instanceof VAPI.AT1130.RTPReceiver.VideoReceiverAsNamedTableRow) {
-      type rx_caps = VAPI.AT1130.RTPReceiver.VideoCapabilities;
       if (conf.uhd) {
         await rx.media_specific.capabilities.command.write({
           supports_2022_6: true,
