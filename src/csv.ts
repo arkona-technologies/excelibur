@@ -21,6 +21,7 @@ export function parse_csv<T extends z.ZodRawShape>(
   csv_header.forEach((key, idx) => {
     parameter_mapping[key] = idx;
   });
+  console.log('CSV Parser found mapping: ', parameter_mapping);
 
   const rows = csv
     .split(row_sep)
@@ -38,6 +39,7 @@ export function parse_csv<T extends z.ZodRawShape>(
         });
         return schema.parse(obj);
       } catch (_e) {
+        console.log(_e);
         return null;
       }
     })

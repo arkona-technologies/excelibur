@@ -416,6 +416,7 @@ export async function setup_processing_chains(
   vm: VAPI.AT1130.Root,
   config: z.infer<typeof ProcessingChainConfig>[],
 ) {
+  console.log(`Preparing ${config.length} Processors`);
   const rtp_audio_ins = config
     .filter((c) => c.source_type === "IP-AUDIO")
     .filter(unique_by("source_type"));

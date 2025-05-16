@@ -59,7 +59,6 @@ export const ProcessorType = z.enum([
 
 export const ProcessingChainConfig = z.object({
   name: z.string(),
-  id: z.coerce.number(),
   flow_type: z.enum(["Video", "Audio"]).optional().default("Video"),
   source_type: SourceType,
   video_format: VideoFormat.nullable().default(null),
