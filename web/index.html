@@ -11,7 +11,7 @@
     <header class="container">
       <hgroup>
         <h1>Upload CSV Files for Configuration</h1>
-        <p>A pure HTML example, without dependencies.</p>
+        <p>Select relevant .csv files and apply them to this device.</p>
       </hgroup>
     </header>
     <main class="container">
@@ -19,21 +19,19 @@
         <div>
           <hgroup>
             <h3>PTP Settings</h3>
+            <p>using multicast delay-request</p>
           </hgroup>
         </div>
         <div>
-          <form
-            id="ptp"
-            hx-post="/base-setup"
-            hx-target="next p"
-          >
+          <form id="ptp" hx-post="/base-setup" hx-swap="none">
             <fieldset role="group">
-              <input type="number" name="domain" />
-              <button type="submit">Upload</button>
+              <input type="number" name="domain" min="0" max="127" />
+              <div>
+              <button type="submit">Apply</button>
               <img id="spinner" class="htmx-indicator" src="svg/bars.svg" />
+              </div>
             </fieldset>
           </form>
-          <p>Status?</p>
         </div>
       </div>
 
@@ -41,6 +39,7 @@
         <div>
           <hgroup>
             <h3>Upload CSV for Processors</h3>
+            <p>Upload Processing Chain config here</p>
           </hgroup>
         </div>
         <div>
@@ -48,15 +47,16 @@
             id="proc"
             hx-encoding="multipart/form-data"
             hx-post="/processor-config"
-            hx-target="next p"
+            hx-swap="none"
           >
             <fieldset role="group">
               <input type="file" name="file" />
+              <div>
               <button>Upload</button>
               <img id="spinner" class="htmx-indicator" src="svg/bars.svg" />
-            </fieldset>
+              </div>
+            </div>
           </form>
-          <p>Status?</p>
         </div>
       </div>
 
@@ -64,6 +64,7 @@
         <div>
           <hgroup>
             <h3>Upload CSV for Receivers</h3>
+            <p>Set Receiver Switching Modes, Capabilities and Labels</p>
           </hgroup>
         </div>
         <div>
@@ -71,15 +72,16 @@
             id="rx"
             hx-encoding="multipart/form-data"
             hx-post="/receiver-config"
-            hx-target="next p"
+            hx-swap="none"
           >
             <fieldset role="group">
               <input type="file" name="file" />
+              <div>
               <button>Upload</button>
               <img id="spinner" class="htmx-indicator" src="svg/bars.svg" />
-            </fieldset>
+              </div>
+            </div>
           </form>
-          <p>Status?</p>
         </div>
       </div>
 
@@ -87,6 +89,7 @@
         <div>
           <hgroup>
             <h3>Upload CSV for Senders</h3>
+            <p>Set Sender Capabilities, Labels and addresses</p>
           </hgroup>
         </div>
         <div>
@@ -94,15 +97,16 @@
             id="tx"
             hx-encoding="multipart/form-data"
             hx-post="/sender-config"
-            hx-target="next p"
+            hx-swap="none"
           >
             <fieldset role="group">
               <input type="file" name="file" />
+              <div>
               <button>Upload</button>
               <img id="spinner" class="htmx-indicator" src="svg/bars.svg" />
+              </div>
             </fieldset>
           </form>
-          <p>Status?</p>
         </div>
       </div>
     </main>
