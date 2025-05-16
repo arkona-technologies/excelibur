@@ -3,44 +3,83 @@
   <head>
     <meta charset="UTF-8" />
     <title>CSV Upload with HTMX</title>
-    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <!-- <script src="https://unpkg.com/htmx.org@1.9.2"></script> -->
+    <script src="htmx/htmx.org@1.9.12"></script>
+    <link rel="stylesheet" href="css/pico.min.css" />
   </head>
   <body>
-    <h1>Upload CSV Files</h1>
-    <h2>Upload CSV for Processors</h2>
-    <form id='proc' hx-encoding='multipart/form-data' hx-post='/processor-config'>
-        <input type='file' name='file'>
-        <button>
-            Upload
-        </button>
-        <progress id='progress' value='0' max='100'></progress>
-    </form>
-    <h2>Upload CSV for Receivers</h2>
-    <form id='rx' hx-encoding='multipart/form-data' hx-post='/receiver-config'>
-        <input type='file' name='file'>
-        <button>
-            Upload
-        </button>
-        <progress id='progress' value='0' max='100'></progress>
-    </form>
-    <h2>Upload CSV for Senders</h2>
-    <form id='tx' hx-encoding='multipart/form-data' hx-post='/sender-config'>
-        <input type='file' name='file'>
-        <button>
-            Upload
-        </button>
-        <progress id='progress' value='0' max='100'></progress>
-    </form>
+    <header class="container">
+      <hgroup>
+        <h1>Upload CSV Files for Configuration</h1>
+        <p>A pure HTML example, without dependencies.</p>
+      </hgroup>
+    </header>
+    <main class='container'>
+      <div class="card">
+      <hgroup>
+        <h3>Upload CSV for Processors</h3>
+      </hgroup>
+      <form
+        id="proc"
+        hx-encoding="multipart/form-data"
+        hx-post="/processor-config"
+      >
+          <fieldset role='group'>
+        <input type="file" name="file" />
+        <button>Upload</button>
+        <progress id="progress" value="0" max="100"></progress>
+          </fieldset>
+      </form>
+      </div>
+      <div class="card">
+        <hgroup>
+        <h3>Upload CSV for Receivers</h3>
+        </hgroup>
+        <form
+          id="rx"
+          hx-encoding="multipart/form-data"
+          hx-post="/receiver-config"
+        >
+          <fieldset role='group'>
+          <input type="file" name="file" />
+          <button>Upload</button>
+          <progress id="progress" value="0" max="100"></progress>
+          </fieldset>
+        </form>
+      </div>
+      <div class="card">
+        <hgroup>
+        <h3>Upload CSV for Senders</h3>
+        </hgroup>
+        <form
+          id="tx"
+          hx-encoding="multipart/form-data"
+          hx-post="/sender-config"
+        >
+          <fieldset role='group'>
+          <input type="file" name="file" />
+          <button>Upload</button>
+          <progress id="progress" value="0" max="100"></progress>
+          </fieldset>
+        </form>
+      </div>
+    </main>
     <script>
-        htmx.on('#proc', 'htmx:xhr:progress', function(evt) {
-          htmx.find('#progress').setAttribute('value', evt.detail.loaded/evt.detail.total * 100)
-        });
-        htmx.on('#rx', 'htmx:xhr:progress', function(evt) {
-          htmx.find('#progress').setAttribute('value', evt.detail.loaded/evt.detail.total * 100)
-        });
-        htmx.on('#tx', 'htmx:xhr:progress', function(evt) {
-          htmx.find('#progress').setAttribute('value', evt.detail.loaded/evt.detail.total * 100)
-        });
+      htmx.on("#proc", "htmx:xhr:progress", function (evt) {
+        htmx
+          .find("#progress")
+          .setAttribute("value", (evt.detail.loaded / evt.detail.total) * 100);
+      });
+      htmx.on("#rx", "htmx:xhr:progress", function (evt) {
+        htmx
+          .find("#progress")
+          .setAttribute("value", (evt.detail.loaded / evt.detail.total) * 100);
+      });
+      htmx.on("#tx", "htmx:xhr:progress", function (evt) {
+        htmx
+          .find("#progress")
+          .setAttribute("value", (evt.detail.loaded / evt.detail.total) * 100);
+      });
     </script>
   </body>
 </html>
