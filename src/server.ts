@@ -30,12 +30,12 @@ const fastify = Fastify({
   bodyLimit: 1e6 /* ? */,
   caseSensitive: false,
 });
-fastify.addContentTypeParser("text/csv", function(_req, payload, done) {
+fastify.addContentTypeParser("text/csv", function (_req, payload, done) {
   let body = "";
-  payload.on("data", function(data) {
+  payload.on("data", function (data) {
     body += data;
   });
-  payload.on("end", function() {
+  payload.on("end", function () {
     try {
       done(null, body);
     } catch (e) {
@@ -78,10 +78,13 @@ fastify.post("/processor-config", async (req, _res) => {
   await setup_processing_chains(vm, processors_config);
   return `Done`;
 });
-fastify.listen({ port: 4242, host: "0.0.0.0" }, (err, addr) => {
-  if (err) {
-    console.log(err);
-  }
-  console.log(`Listening on ${addr}`);
-  console.log(fastify.printRoutes());
-});
+fastify.listen(
+  { port: parseInt(process.env["PORT"] ?? "4242"), host: "0.0.0.0" },
+  (err, addr) => {
+    if (err) {
+      console.log(err);
+    }
+    console.log(`Listening on ${addr}`);
+    console.log(fastify.printRoutes());
+  },
+);
