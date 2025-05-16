@@ -30,7 +30,10 @@ export const ReceiverConfig = z.object({
   label: z.string(),
   stream_type: StreamType, // eh... but oh well
   sync: z.coerce.boolean().default(true),
-  uhd: z.coerce.boolean().optional().default(false),
+  uhd: z
+    .string()
+    .refine((v) => v.toLowerCase() === "true" || v.toLowerCase() === "false")
+    .transform((v) => v.toLowerCase() === "true"),
   channel_capacity: z.coerce.number().optional().default(16),
   switch_type: SwitchType,
 });

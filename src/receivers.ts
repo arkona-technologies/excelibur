@@ -10,7 +10,9 @@ export async function apply_receivers_config(
   config: z.infer<typeof ReceiverConfig>[],
 ) {
   for (const conf of config) {
-    console.log(`[${vm.raw.identify()}] Applying receiver-config @${conf.stream_type}/${conf.id} with label ${conf.label}`);
+    console.log(
+      `[${vm.raw.identify()}] Applying receiver-config @${conf.stream_type}/${conf.id} with label ${conf.label}`,
+    );
     const get_receiver = () => {
       switch (conf.stream_type) {
         case "2110-20":
@@ -62,31 +64,35 @@ export async function apply_receivers_config(
     );
     if (rx instanceof VAPI.AT1130.RTPReceiver.VideoReceiverAsNamedTableRow) {
       if (conf.uhd) {
-        await rx.media_specific.capabilities.command.write({
-          supports_2022_6: true,
-          read_speed: lock_to_genlock(rx),
-          st2110_20_caliber: "ST2110_singlelink_uhd",
-          supports_2110_40: true,
-          supports_clean_switching: true,
-          supports_uhd_sample_interleaved: true,
-          jpeg_xs_caliber:
-            conf.stream_type === "2110-22" ? "JPEG_XS_singlelink_uhd" : null,
-          st2042_2_caliber:
-            conf.stream_type === "2042-20" ? "ST2042_2_singlelink_uhd" : null,
-        });
+        await rx.media_specific.capabilities.command
+          .write({
+            supports_2022_6: true,
+            read_speed: lock_to_genlock(rx),
+            st2110_20_caliber: "ST2110_singlelink_uhd",
+            supports_2110_40: true,
+            supports_clean_switching: true,
+            supports_uhd_sample_interleaved: true,
+            jpeg_xs_caliber:
+              conf.stream_type === "2110-22" ? "JPEG_XS_singlelink_uhd" : null,
+            st2042_2_caliber:
+              conf.stream_type === "2042-20" ? "ST2042_2_singlelink_uhd" : null,
+          })
+          .catch((_e) => console.log(`Error setting up ${conf.label}`));
       } else {
-        await rx.media_specific.capabilities.command.write({
-          supports_2022_6: true,
-          read_speed: lock_to_genlock(rx),
-          st2110_20_caliber: "ST2110_upto_3G",
-          supports_2110_40: true,
-          supports_clean_switching: true,
-          supports_uhd_sample_interleaved: true,
-          jpeg_xs_caliber:
-            conf.stream_type == "2110-22" ? "JPEG_XS_upto_3G" : null,
-          st2042_2_caliber:
-            conf.stream_type == "2042-20" ? "ST2042_2_upto_3G" : null,
-        });
+        await rx.media_specific.capabilities.command
+          .write({
+            supports_2022_6: true,
+            read_speed: lock_to_genlock(rx),
+            st2110_20_caliber: "ST2110_upto_3G",
+            supports_2110_40: true,
+            supports_clean_switching: true,
+            supports_uhd_sample_interleaved: false,
+            jpeg_xs_caliber:
+              conf.stream_type == "2110-22" ? "JPEG_XS_upto_3G" : null,
+            st2042_2_caliber:
+              conf.stream_type == "2042-20" ? "ST2042_2_upto_3G" : null,
+          })
+          .catch((_e) => console.log(`Error setting up ${conf.label}`));
       }
 
       await session.active.command.write(false);

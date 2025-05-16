@@ -30,8 +30,8 @@ const vm = (await open_connection(
 )) as VAPI.AT1130.Root;
 
 await base(vm);
+await apply_receivers_config(vm, rx_config);
 await setup_processing_chains(vm, processors_config);
 await apply_senders_config(vm, tx_config);
-await apply_receivers_config(vm, rx_config);
 
 process.exit(0);

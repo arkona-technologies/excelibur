@@ -88,7 +88,7 @@ export async function apply_senders_config(
           return {
             variant: "ST2110_20",
             value: {
-              transmit_scheduler_uhd: true,
+              transmit_scheduler_uhd: false,
               add_st2110_40: false,
               packing_mode: "GPM",
             },
