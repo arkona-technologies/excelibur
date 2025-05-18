@@ -37,7 +37,6 @@ export function parse_csv<T extends z.ZodRawShape>(
           const idx = parameter_mapping[k];
           obj[k] = row[idx];
         });
-        console.log(obj);
         return schema.parse(obj);
       } catch (_e) {
         console.log(_e);
