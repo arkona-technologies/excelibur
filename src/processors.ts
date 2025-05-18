@@ -252,16 +252,16 @@ async function setup_processing_chain_video(
     target = cc3d?.v_src;
   }
 
-  if (config.delay_ms) {
+  if (config.delay_frames) {
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding Delay...`);
     const delay = await vm.re_play?.video.delays.create_row({
       name: `${shorten_label(config.name)}.DLY`,
     });
     await delay?.capabilities.command.write({
-      delay_mode: config.delay_ms < 40 ? "FramePhaser" : "FrameSync_Freeze",
+      delay_mode: config.delay_frames < 2 ? "FramePhaser" : "FrameSync_Freeze",
       capacity: {
-        variant: "Time",
-        value: { time: new Duration(config.delay_ms, "ms") },
+        variant: "Frames",
+        value: { frames: config.delay_frames},
       },
       input_caliber: {
         variant: "Single",
@@ -282,12 +282,12 @@ async function setup_processing_chain_video(
     await out?.t_src.command.write(vm.genlock!.instances.row(0).backend.output);
     await out?.delay.offset.command
       .write({
-        variant: "Time",
-        value: { time: new Duration(config.delay_ms, "ms") },
+        variant: "Frames",
+        value: { frames: config.delay_frames},
       })
       .catch((_e) =>
         console.log(
-          `[${vm.raw.identify()}] video delay refuses to accept delay setting of ${config.delay_ms?.toString()} ; contact support via clemens@arkonatech.com`,
+          `[${vm.raw.identify()}] video delay refuses to accept delay setting of ${config.delay_frames?.toString()} ; contact support via clemens@arkonatech.com`,
         ),
       );
     await set_vsrc(target.command, out!.video);
@@ -334,17 +334,17 @@ async function setup_processing_chain_audio(
   });
   await set_asrc(target?.command, gain.output);
   target = gain.a_src;
-  if (config.delay_ms) {
+  if (config.delay_frames) {
     const delay = await vm.re_play?.audio.delays.create_row({
       name: `${shorten_label(config.name)}.DLY`,
     });
-    await delay?.capabilities.num_channels.command.write(16).catch((_) => {});
+    await delay?.capabilities.num_channels.command.write(16).catch((_) => { });
     await delay?.capabilities.capacity.command
       .write({
         variant: "Time",
-        value: { time: new Duration(config.delay_ms, "ms") },
+        value: { time: new Duration(config.delay_frames * 40, "ms") },
       })
-      .catch((_) => {});
+      .catch((_) => { });
     await delay?.num_outputs.write(1);
     await delay?.outputs
       .row(0)
@@ -402,14 +402,14 @@ async function setup_processing_chain(
     config.source_type == "PLAYER-VIDEO" ||
     config.flow_type === "Video"
   ) {
-    await setup_processing_chain_video(vm, config).catch((_) => {});
+    await setup_processing_chain_video(vm, config).catch((_) => { });
   }
   if (
     config.source_type == "IP-AUDIO" ||
     config.source_type == "PLAYER-AUDIO" ||
     config.flow_type === "Audio"
   ) {
-    await setup_processing_chain_audio(vm, config).catch((_) => {});
+    await setup_processing_chain_audio(vm, config).catch((_) => { });
   }
 }
 export async function setup_processing_chains(
