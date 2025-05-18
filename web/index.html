@@ -23,9 +23,10 @@
           </hgroup>
         </div>
         <div>
-          <form id="ptp" hx-post="/base-setup" hx-swap="none">
+          <form id="ptp" hx-post="/base-setup" hx-swap="innerHTML" hx-target='#domain'>
             <fieldset role="group">
-              <input type="number" name="domain" min="0" max="127" />
+              <p >Domain: </p>
+              <p style="width:500px;" id="domain">N/A</p>
               <div>
               <button type="submit">Apply</button>
               <img id="spinner" class="htmx-indicator" src="svg/bars.svg" />

@@ -35,7 +35,7 @@ const fastify = Fastify({
 fastify.addContentTypeParser(
   "application/json",
   { parseAs: "string" },
-  function (_req: any, body: any, done: any) {
+  function(_req: any, body: any, done: any) {
     try {
       var json: any = JSON.parse(body);
       done(null, json);
@@ -46,12 +46,12 @@ fastify.addContentTypeParser(
   },
 );
 
-fastify.addContentTypeParser("text/csv", function (_req, payload, done) {
+fastify.addContentTypeParser("text/csv", function(_req, payload, done) {
   let body = "";
-  payload.on("data", function (data) {
+  payload.on("data", function(data) {
     body += data;
   });
-  payload.on("end", function () {
+  payload.on("end", function() {
     try {
       done(null, body);
     } catch (e) {
@@ -86,10 +86,11 @@ fastify.post("/receiver-config", async (req, _res) => {
   await apply_receivers_config(vm, rx_config);
   return `Done`;
 });
-fastify.post("/base-setup", {},async (_req : any, _res) => {
-  const domain = parseInt(_req.body.domain);
+fastify.post("/base-setup", {}, async (_req: any, _res) => {
   await base(vm);
-  return "Done";
+  const traits = await vm.p_t_p_clock.output.ptp_traits.read();
+  const domain = await traits?.domain.read();
+  return domain ?? "N/A";
 });
 
 fastify.post("/processor-config", async (req, _res) => {
