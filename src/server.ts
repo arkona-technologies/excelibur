@@ -88,7 +88,7 @@ fastify.post("/receiver-config", async (req, _res) => {
 });
 fastify.post("/base-setup", {},async (_req : any, _res) => {
   const domain = parseInt(_req.body.domain);
-  await base(vm,domain);
+  await base(vm);
   return "Done";
 });
 

@@ -1,15 +1,149 @@
-import { scrub } from "vutil";
 import * as VAPI from "vapi";
-import { setup_ptp } from "vutil/ptp.js";
+import {
+  asyncFilterMap,
+  asyncIter,
+  asyncMap,
+  Duration,
+  enforce,
+} from "vscript";
+import { enumerate, range, scrub } from "vutil";
+// import { setup_ptp } from "vutil/ptp.js";
 import { setup_sdi_io } from "vutil/sdi_connections.js";
-import { Duration } from "vscript";
 
-export async function base(vm: VAPI.AT1130.Root, ptp_domain?: number) {
+// export async function base(vm: VAPI.AT1130.Root, ptp_domain?: number) {
+//   await scrub(vm, { kwl_whitelist: [/system.nmos/, /system.services/] });
+//   await setup_ptp(vm, {
+//     ptp_domain: ptp_domain ?? 127,
+//     locking_policy: "Locking",
+//   });
+//   await setup_sdi_io(vm).catch((_) => { });
+//   await vm.r_t_p_receiver?.settings.clean_switching_policy.write("Whatever");
+//   await vm.r_t_p_receiver?.settings.reserved_bandwidth.write(8);
+//   await vm.system_clock.t_src.write(vm.p_t_p_clock.output);
+//   const ltc_clock = await vm.master_clock.ltc_generators.create_row();
+//   await ltc_clock.t_src.command.write(
+//     vm.genlock!.instances.row(0).backend.output,
+//   );
+//   await ltc_clock.frame_rate.command.write("f25");
+//   await vm.audio_shuffler?.global_cross_fade.write(new Duration(50, "ms"));
+//   console.log(`Finished Base Setup @${vm.raw.identify()}`);
+// }
+
+export async function find_best_ptp_domain(port: VAPI.AT1130.PTPFlows.Port) {
+  console.log(`Looking for best domain for port ${port.raw.kwl}`);
+  const vm = VAPI.VM.adopt(port.raw.backing_store) as VAPI.AT1130.Root;
+  const agents = await asyncMap(range(0, 128), async (domain) => {
+    const agent = await vm.p_t_p_flows.agents.create_row({
+      allow_reuse_row: true,
+    });
+    await agent.mode.write("SlaveOnly");
+    await agent.domain.command.write(domain);
+    await agent.hosting_port.command.write(port);
+    return agent as VAPI.AT1130.PTPFlows.AgentAsNamedTableRow;
+  });
+  await Promise.all(
+    agents.map((a) =>
+      a.output.ptp_traits.wait_until((tr) => !!tr).catch((_e) => {}),
+    ),
+  );
+  type MasterParams = {
+    domain: number;
+    prio1: number;
+    prio2: number;
+    tp: VAPI.PTP.SourceType;
+    name?: string;
+  };
+  const best_masters: MasterParams[] = await asyncFilterMap(
+    await vm.p_t_p_flows.visible_masters.rows(),
+    async (bm) => {
+      const domain = await bm.ptp_traits.domain.read();
+      const prio1 = await bm.ptp_traits.grandmaster_priority_1.read();
+      const prio2 = await bm.ptp_traits.grandmaster_priority_2.read();
+      const tp = await bm.ptp_traits.source_type.read();
+      const name = await bm.ptp_traits.grandmaster_identity
+        .read()
+        .then((id) =>
+          id.map((uint) => uint.toString(16).padStart(2, "0")).join(":"),
+        );
+      if (!(!!domain && !!prio1 && !!prio2 && !!tp)) {
+        return undefined;
+      }
+      return {
+        domain,
+        prio1,
+        prio2,
+        tp,
+        name,
+      };
+    },
+  );
+
+  best_masters.sort((a, b) => {
+    if (a.prio1 != b.prio1) return a.prio1 < b.prio1 ? -1 : 1;
+    const st_a = VAPI.PTP.Enums.SourceType.indexOf(a.tp);
+    const st_b = VAPI.PTP.Enums.SourceType.indexOf(b.tp);
+    if (st_a != st_b) return st_a < st_b ? -1 : 1;
+    if (a.prio2 != b.prio2) return a.prio2 < b.prio2 ? -1 : 1;
+    return 0;
+  });
+  await asyncIter(agents, async (ag) => {
+    await ag.hosting_port.command.write(null);
+  });
+  await vm.p_t_p_flows.agents.delete_all();
+  return { port, master: best_masters.at(0) };
+}
+
+function chunk(array: any[], chunk_size: number) {
+  return Array.from(
+    { length: Math.ceil(array.length / chunk_size) },
+    (_, index) => array.slice(index * chunk_size, (index + 1) * chunk_size),
+  );
+}
+
+export async function setup_timing(vm: VAPI.AT1130.Root) {
+  const ports = await vm.p_t_p_flows.ports.rows();
+  const map: Awaited<ReturnType<typeof find_best_ptp_domain>>[] = [];
+  for (const ports_subset of chunk(ports, 2)) {
+    const to_map = await asyncMap(ports_subset, async (port) => {
+      return await find_best_ptp_domain(port);
+    });
+    for (const m of to_map) map.push(m); // quick hack
+  }
+  const agents = await asyncFilterMap(map, async (pars) => {
+    if (!!!pars.master) return undefined;
+    const agent = await vm.p_t_p_flows.agents.create_row();
+    await agent.domain.command.write(pars.master.domain);
+    await agent.hosting_port.command.write(pars.port);
+    await agent.mode.write("SlaveOnly");
+    await agent.slave_settings.delay_req_routing.command.write("Multicast");
+    console.log(
+      `Set up ${await agent.row_name()} for Master ${pars.master.name ?? "N/A"} on domain ${pars.master.domain}@${pars.port.raw.kwl}`,
+    );
+    return agent;
+  });
+  const comb = await vm.time_flows.combinators.create_row();
+  await comb.quorum.command.write(1);
+  const tsrc = new Array(8).fill(null);
+  for (const [idx, agent] of enumerate(agents)) tsrc[idx] = agent.output;
+  await comb.t_src.command.write(tsrc);
+  await vm.p_t_p_clock.t_src.command.write(comb.output);
+  for (const genlock of [...vm.genlock!.instances]) {
+    await genlock.t_src.command.write(vm.p_t_p_clock.output);
+  }
+  return vm
+    .genlock!.instances.row(0)
+    .state.wait_until((s) => s == "Calibrated" || s === "FreeRun", {
+      timeout: new Duration(5, "min"),
+    })
+    .then((_) => true)
+    .catch((_) => false);
+}
+
+export async function base(vm: VAPI.AT1130.Root) {
   await scrub(vm, { kwl_whitelist: [/system.nmos/, /system.services/] });
-  await setup_ptp(vm, { ptp_domain: ptp_domain??127, locking_policy: "Locking" });
+  await setup_timing(vm);
   await setup_sdi_io(vm).catch((_) => {});
   await vm.r_t_p_receiver?.settings.clean_switching_policy.write("Whatever");
-  await vm.r_t_p_receiver?.settings.reserved_bandwidth.write(8);
   await vm.system_clock.t_src.write(vm.p_t_p_clock.output);
   const ltc_clock = await vm.master_clock.ltc_generators.create_row();
   await ltc_clock.t_src.command.write(
