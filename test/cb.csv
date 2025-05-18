@@ -1,20 +1,20 @@
-source_id,source_type,name,lut_name,delay_ms,video_format,splitter_phase,output_id,output_type,flow_type
+source_id,source_type,name,lut_name,delay_frames,video_format,splitter_phase,output_id,output_type,flow_type
 0,SDI,Radio Cam 1 HDR,,,3G,,0,IP-VIDEO,Video
 1,SDI,Radio Cam 2 HDR,,,3G,,1,IP-VIDEO,Video
 2,SDI,HiMo ENG,,,3G,,2,IP-VIDEO,Video
-3,SDI,OSD 1,,30,3G,,3,IP-VIDEO,Video
-4,SDI,OSD 2,,30,3G,,4,IP-VIDEO,Video
-5,SDI,OSD 3,,30,3G,,5,IP-VIDEO,Video
-6,SDI,OSD 4,,30,3G,,6,IP-VIDEO,Video
-7,SDI,OSD 5,,30,3G,,7,IP-VIDEO,Video
-8,SDI,OSD 6,,30,3G,,8,IP-VIDEO,Video
-9,SDI,OSD 7,,30,3G,,9,IP-VIDEO,Video
-10,SDI,OSD 8,,30,3G,,10,IP-VIDEO,Video
-11,SDI,OSD 9,,30,3G,,11,IP-VIDEO,Video
-12,SDI,OSD 10,,30,3G,,12,IP-VIDEO,Video
-13,SDI,OSD 11,,30,3G,,13,IP-VIDEO,Video
-14,SDI,OSD 12,,30,3G,,14,IP-VIDEO,Video
-15,SDI,OSD 13,,30,3G,,15,IP-VIDEO,Video
+3,SDI,OSD 1,,1,3G,,3,IP-VIDEO,Video
+4,SDI,OSD 2,,1,3G,,4,IP-VIDEO,Video
+5,SDI,OSD 3,,1,3G,,5,IP-VIDEO,Video
+6,SDI,OSD 4,,1,3G,,6,IP-VIDEO,Video
+7,SDI,OSD 5,,1,3G,,7,IP-VIDEO,Video
+8,SDI,OSD 6,,1,3G,,8,IP-VIDEO,Video
+9,SDI,OSD 7,,1,3G,,9,IP-VIDEO,Video
+10,SDI,OSD 8,,1,3G,,10,IP-VIDEO,Video
+11,SDI,OSD 9,,1,3G,,11,IP-VIDEO,Video
+12,SDI,OSD 10,,1,3G,,12,IP-VIDEO,Video
+13,SDI,OSD 11,,1,3G,,13,IP-VIDEO,Video
+14,SDI,OSD 12,,1,3G,,14,IP-VIDEO,Video
+15,SDI,OSD 13,,1,3G,,15,IP-VIDEO,Video
 0,IP-VIDEO,Radio Cam 1 SDR,LUT 1.1,,3G,,16,IP-VIDEO,Video
 1,IP-VIDEO,Radio Cam 2 SDR,LUT 1.2,,3G,,17,IP-VIDEO,Video
 2,IP-VIDEO,AT300 LUT1.4,LUT 1.4,,3G,,18,IP-VIDEO,Video

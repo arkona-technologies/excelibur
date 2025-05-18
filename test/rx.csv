@@ -8,9 +8,9 @@ id,label,stream_type,sync,uhd,channel_capacity,switch_type
 6,20-AT300-001_r07_v01,2110-20,true,false,16,MakeBeforeBreak
 7,20-AT300-001_r08_v01,2110-20,true,false,16,MakeBeforeBreak
 8,20-AT300-001_r09_v01,2110-20,true,false,16,MakeBeforeBreak
-9,20-AT300-001_r10_v01,2110-20,true,true,16,MakeBeforeBreak
+9,20-AT300-001_r10_v01,2110-20,true,false,16,MakeBeforeBreak
 10,20-AT300-001_r11_v01,2110-20,true,false,16,MakeBeforeBreak
-11,20-AT300-001_r12_v01,2110-20,true,true,16,MakeBeforeBreak
+11,20-AT300-001_r12_v01,2110-20,true,false,16,MakeBeforeBreak
 12,20-AT300-001_r13_v01,2110-20,true,false,16,MakeBeforeBreak
 13,20-AT300-001_r14_v01,2110-20,true,false,16,MakeBeforeBreak
 14,20-AT300-001_r15_v01,2110-20,true,false,16,MakeBeforeBreak
