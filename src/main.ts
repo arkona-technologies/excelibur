@@ -2,7 +2,7 @@ import { parse_csv } from "./csv.js";
 import * as VAPI from "vapi";
 
 import fs from "fs";
-import { enforce_nonnull } from "vscript";
+import { Duration, enforce_nonnull, pause } from "vscript";
 import { open_connection } from "./connection.js";
 import { base } from "./base.js";
 import {
@@ -29,7 +29,7 @@ const vm = (await open_connection(
   new URL(process.env["URL"] ?? "ws://127.0.0.1"),
 )) as VAPI.AT1130.Root;
 
-await base(vm);
+await Promise.race([base(vm), pause(new Duration(2, "min"))]); // add timeout if no ptp present
 await apply_receivers_config(vm, rx_config);
 await setup_processing_chains(vm, processors_config);
 await apply_senders_config(vm, tx_config);
