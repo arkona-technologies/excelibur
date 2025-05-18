@@ -127,6 +127,9 @@ export async function apply_senders_config(
       }
     }
 
-    session.active.command.write(true).catch();
+  }
+
+  for (const s of await vm.r_t_p_transmitter!.sessions.rows()) {
+    vm.raw.write_unchecked({ kwl: s.raw.kwl, kw: "active_command" }, true);
   }
 }

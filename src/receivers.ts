@@ -110,7 +110,7 @@ export async function apply_receivers_config(
     }
     if (rx instanceof VAPI.AT1130.RTPReceiver.AudioReceiverAsNamedTableRow) {
       await rx.media_specific.capabilities.command.write({
-        payload_limit: "AtMost1984Bytes",
+        payload_limit: "AtMost960Bytes",
         read_speed: lock_to_genlock(rx),
         channel_capacity: conf.channel_capacity,
         supports_clean_switching: true,
@@ -120,6 +120,8 @@ export async function apply_receivers_config(
         value: { read_delay: new Duration(2, "ms") },
       });
     }
-    await session.active.command.write(true);
+  }
+  for (const s of await vm.r_t_p_receiver!.sessions.rows()) {
+    vm.raw.write_unchecked({ kwl: s.raw.kwl, kw: "active_command" }, true);
   }
 }
