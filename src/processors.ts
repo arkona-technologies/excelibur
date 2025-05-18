@@ -202,7 +202,8 @@ async function setup_processing_chain_video(
 
   let source = enforce_nonnull(find_source()); // type this out...
   const find_splitter = async (v_src: VAPI.AT1130.Video.Essence) => {
-    const splitters = await vm.splitter!.instances.rows();
+    enforce(!!vm.splitter);
+    const splitters = await vm.splitter.instances.rows();
     for (const splitter of splitters) {
       const v_src_split = await splitter.v_src.status.read();
       if (v_src == v_src_split) return splitter;
@@ -210,9 +211,9 @@ async function setup_processing_chain_video(
     return null;
   };
 
-  if (config.splitter_phase) {
+  if (config.splitter_phase !== null) {
     console.log(
-      `[${vm.raw.identify()}] ${config.name}: Using Splitter; exiting early`,
+      `[${vm.raw.identify()}] ${config.name}: Using Splitter; ignoring cc3d and delay... (todo)`,
     );
     let maybe_splitter = await find_splitter(source);
     if (!maybe_splitter) {
@@ -221,6 +222,9 @@ async function setup_processing_chain_video(
       });
       await maybe_splitter.v_src.command.write(source);
     }
+    console.log(
+      `[${vm.raw.identify()}] ${config.name}: Splitter in use: ${maybe_splitter?.raw.kwl}`,
+    );
     await set_vsrc(
       target.command,
       maybe_splitter.outputs.row(config.splitter_phase % 4).output,
@@ -228,7 +232,7 @@ async function setup_processing_chain_video(
     return;
   }
 
-  if (config.lut_name) {
+  if (config.lut_name !== null) {
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding CC3D...`);
     const cc3d = await vm.color_correction?.cc3d.create_row({
       name: `${shorten_label(config.name)}.CC3D`,
@@ -261,7 +265,7 @@ async function setup_processing_chain_video(
       delay_mode: config.delay_frames < 2 ? "FramePhaser" : "FrameSync_Freeze",
       capacity: {
         variant: "Frames",
-        value: { frames: config.delay_frames},
+        value: { frames: config.delay_frames },
       },
       input_caliber: {
         variant: "Single",
@@ -283,7 +287,7 @@ async function setup_processing_chain_video(
     await out?.delay.offset.command
       .write({
         variant: "Frames",
-        value: { frames: config.delay_frames},
+        value: { frames: config.delay_frames },
       })
       .catch((_e) =>
         console.log(
@@ -338,13 +342,13 @@ async function setup_processing_chain_audio(
     const delay = await vm.re_play?.audio.delays.create_row({
       name: `${shorten_label(config.name)}.DLY`,
     });
-    await delay?.capabilities.num_channels.command.write(16).catch((_) => { });
+    await delay?.capabilities.num_channels.command.write(16).catch((_) => {});
     await delay?.capabilities.capacity.command
       .write({
         variant: "Time",
         value: { time: new Duration(config.delay_frames * 40, "ms") },
       })
-      .catch((_) => { });
+      .catch((_) => {});
     await delay?.num_outputs.write(1);
     await delay?.outputs
       .row(0)
@@ -402,14 +406,14 @@ async function setup_processing_chain(
     config.source_type == "PLAYER-VIDEO" ||
     config.flow_type === "Video"
   ) {
-    await setup_processing_chain_video(vm, config).catch((_) => { });
+    await setup_processing_chain_video(vm, config).catch((_) => {});
   }
   if (
     config.source_type == "IP-AUDIO" ||
     config.source_type == "PLAYER-AUDIO" ||
     config.flow_type === "Audio"
   ) {
-    await setup_processing_chain_audio(vm, config).catch((_) => { });
+    await setup_processing_chain_audio(vm, config).catch((_) => {});
   }
 }
 export async function setup_processing_chains(
