@@ -239,7 +239,7 @@ async function setup_processing_chain_video(
       `[${vm.raw.identify()}] ${config.name}: Using Splitter; ignoring cc3d and delay... (todo)`,
     );
     let maybe_splitter = await find_splitter(source);
-    console.log(`${config.name} -> ${maybe_splitter?.raw.kwl}`);
+    console.log(`[${vm.raw.identify()}] ${config.name} -> ${maybe_splitter?.raw.kwl}`);
     if (!maybe_splitter) {
       maybe_splitter = await vm.splitter!.instances.create_row({
         name: `${shorten_label(config.name)}.SPL`,
