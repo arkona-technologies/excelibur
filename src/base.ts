@@ -169,7 +169,7 @@ export async function base(vm: VAPI.AT1130.Root) {
   const ltc_clock = await vm.master_clock.ltc_generators.create_row();
   await ltc_clock.t_src.command.write(
     vm.genlock!.instances.row(0).backend.output,
-  );
+  ).catch();
   await ltc_clock.frame_rate.command.write("f25");
   await vm.audio_shuffler?.global_cross_fade.write(new Duration(50, "ms"));
   console.log(`Finished Base Setup @${vm.raw.identify()}`);

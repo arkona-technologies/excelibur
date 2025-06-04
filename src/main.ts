@@ -29,9 +29,9 @@ const vm = (await open_connection(
   new URL(process.env["URL"] ?? "ws://127.0.0.1"),
 )) as VAPI.AT1130.Root;
 
-await Promise.race([base(vm), pause(new Duration(2, "min"))]); // add timeout if no ptp present
-await setup_processing_chains(vm, processors_config);
+await base(vm);
 await apply_senders_config(vm, tx_config);
 await apply_receivers_config(vm, rx_config);
+await setup_processing_chains(vm, processors_config);
 
 process.exit(0);

@@ -87,12 +87,22 @@ async function prepare_video_tx(
       allow_reuse_row: true,
       index: conf.output_id,
     });
+    const maybe_session = await tx.generic.hosting_session.status.read();
+    if (maybe_session) {
+      await maybe_session.active.command.write(false);
+    }
     await tx.constraints.max_bandwidth.command.write(
       conf.video_format == "12G" || conf.video_format == "6G"
         ? "b12_0Gb"
         : "b3_0Gb",
     );
     await tx.rename(conf.name);
+    if (maybe_session) {
+      vm.raw.write_unchecked(
+        { kwl: maybe_session.raw.kwl, kw: "active_command" },
+        true,
+      );
+    }
   }
 }
 async function prepare_audio_tx(
@@ -119,16 +129,18 @@ async function prepare_video_rx(
     });
     await rx.generic.initiate_readout_on.command.write("FirstStreamPresent");
     if (await rx.media_specific.capabilities.status.read()) continue;
-    await rx.media_specific.capabilities.command.write({
-      read_speed: lock_to_genlock(rx),
-      supports_clean_switching: true,
-      jpeg_xs_caliber: null,
-      st2042_2_caliber: null,
-      supports_2022_6: true,
-      st2110_20_caliber: "ST2110_upto_3G",
-      supports_2110_40: true,
-      supports_uhd_sample_interleaved: true,
-    });
+    await rx.media_specific.capabilities.command
+      .write({
+        read_speed: lock_to_genlock(rx),
+        supports_clean_switching: true,
+        jpeg_xs_caliber: null,
+        st2042_2_caliber: null,
+        supports_2022_6: true,
+        st2110_20_caliber: "ST2110_upto_3G",
+        supports_2110_40: true,
+        supports_uhd_sample_interleaved: true,
+      })
+      .catch((e) => console.log(e));
     await rx.rename(conf.name);
   }
 }
@@ -144,12 +156,14 @@ async function prepare_audio_rx(
     });
     await rx.generic.initiate_readout_on.command.write("FirstStreamPresent");
     if (await rx.media_specific.capabilities.status.read()) continue;
-    await rx.media_specific.capabilities.command.write({
-      read_speed: lock_to_genlock(rx),
-      channel_capacity: 16,
-      payload_limit: "AtMost1984Bytes",
-      supports_clean_switching: true,
-    });
+    await rx.media_specific.capabilities.command
+      .write({
+        read_speed: lock_to_genlock(rx),
+        channel_capacity: 16,
+        payload_limit: "AtMost1984Bytes",
+        supports_clean_switching: true,
+      })
+      .catch((e) => console.log(e));
     await rx.rename(conf.name);
   }
 }
@@ -212,9 +226,10 @@ async function setup_processing_chain_video(
   const find_splitter = async (v_src: VAPI.AT1130.Video.Essence) => {
     enforce(!!vm.splitter);
     const splitters = await vm.splitter.instances.rows();
+    console.log(`[${vm.raw.identify()}] Searching for Splitter with v_src == ${v_src.raw.kwl}`);
     for (const splitter of splitters) {
       const v_src_split = await splitter.v_src.status.read();
-      if (v_src == v_src_split) return splitter;
+      if (v_src.raw.kwl == v_src_split?.raw.kwl) return splitter;
     }
     return null;
   };
@@ -224,6 +239,7 @@ async function setup_processing_chain_video(
       `[${vm.raw.identify()}] ${config.name}: Using Splitter; ignoring cc3d and delay... (todo)`,
     );
     let maybe_splitter = await find_splitter(source);
+    console.log(`${config.name} -> ${maybe_splitter?.raw.kwl}`);
     if (!maybe_splitter) {
       maybe_splitter = await vm.splitter!.instances.create_row({
         name: `${shorten_label(config.name)}.SPL`,
@@ -371,22 +387,20 @@ async function setup_processing_chain_audio(
   let target: any = find_target();
   await prepare_target();
   enforce(!!target, "Target is not present");
-  const gain = await vm.audio_gain!.instances.create_row({
-    name: `${shorten_label(config.name)}`,
-  });
+  const gain = await vm.audio_gain!.instances.create_row();
+  await gain.rename(`${shorten_label(config.name)}`).catch();
   await set_asrc(target?.command, gain.output);
   target = gain.a_src;
   if (config.delay_frames) {
-    const delay = await vm.re_play?.audio.delays.create_row({
-      name: `${shorten_label(config.name)}.DLY`,
-    });
-    await delay?.capabilities.num_channels.command.write(16).catch((_) => {});
+    const delay = await vm.re_play?.audio.delays.create_row();
+    await gain.rename(`${shorten_label(config.name)}.DLY`).catch();
+    await delay?.capabilities.num_channels.command.write(16).catch((_) => { });
     await delay?.capabilities.capacity.command
       .write({
         variant: "Time",
         value: { time: new Duration(config.delay_frames * 40, "ms") },
       })
-      .catch((_) => {});
+      .catch((_) => { });
     await delay?.num_outputs.write(1);
     await delay?.outputs
       .row(0)
