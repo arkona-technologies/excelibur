@@ -38,12 +38,14 @@ source_id,source_type,name,lut_name,delay_frames,video_format,splitter_phase,out
 0,IP-VIDEO,PGM A HDR,,,3G,0,0,SDI,Video
 0,IP-VIDEO,PGM A SDR,,,3G,1,1,SDI,Video
 0,IP-VIDEO,TX 1,,,3G,2,2,SDI,Video
+0,IP-VIDEO,TX 1,,,3G,2,2,SDI,Video
 0,IP-VIDEO,TX 3,,,3G,3,3,SDI,Video
 3,IP-VIDEO,TX 5,,,3G,,4,SDI,Video
 4,IP-VIDEO,TX 7,,,3G,,5,SDI,Video
 5,IP-VIDEO,TX 9,,,3G,,6,SDI,Video
 6,IP-VIDEO,TX 11,,,3G,,7,SDI,Video
 7,IP-VIDEO,TX 13,,,3G,,8,SDI,Video
+7,IP-AUDIO,TX 13,,,3G,,8,SDI,Audio
 8,IP-VIDEO,Vision Circuit 91 - Cam 1 Back up,,,3G,,9,SDI,Video
 9,IP-VIDEO,Vision Circuit 93 - Cam 3 Back up,,,3G,,10,SDI,Video
 10,IP-VIDEO,Vision Racks Mon 1 + VT MV Mon 4,,,12G,,11,SDI,Video
