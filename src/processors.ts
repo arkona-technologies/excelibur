@@ -316,6 +316,36 @@ async function setup_processing_chain_audio(
         assert(false);
     }
   };
+
+  const prepare_target = async () => {
+    switch (config.output_type) {
+      case "MADI":
+        await vm.i_o_module?.output
+          .row(config.output_id)
+          .mode.command.write("MADI");
+        break;
+      case "SDI":
+        await vm.i_o_module?.output
+          .row(config.output_id)
+          .mode.command.write("SDI");
+        await vm.i_o_module?.output
+          .row(config.output_id)
+          .sdi.embedded_audio.command.write([
+            "Embed",
+            "Embed",
+            "Embed",
+            "Embed",
+            "Off",
+            "Off",
+            "Off",
+            "Off",
+          ]);
+        break;
+      case "IP-AUDIO":
+      case "IP-VIDEO":
+    }
+  };
+
   async function set_asrc(
     target_command: any,
     source: VAPI.AT1130.Audio.Essence,
@@ -325,17 +355,18 @@ async function setup_processing_chain_audio(
       `[${vm.raw.identify()}] ${kwl}: setting source to ${source.raw.kwl}`,
     );
     if (kwl.includes("i_o_module") || kwl.includes("transmitter")) {
-      // i mean why not
       return await target_command.write(audio_ref(source));
     } else {
       return await target_command.write(source);
     }
   }
   let target: any = find_target();
+  await prepare_target();
   enforce(!!target, "Target is not present");
   const gain = await vm.audio_gain!.instances.create_row({
     name: `${shorten_label(config.name)}`,
   });
+  console.log("target is:", target);
   await set_asrc(target?.command, gain.output);
   target = gain.a_src;
   if (config.delay_frames) {
@@ -406,14 +437,18 @@ async function setup_processing_chain(
     config.source_type == "PLAYER-VIDEO" ||
     config.flow_type === "Video"
   ) {
-    await setup_processing_chain_video(vm, config).catch((_) => {});
+    await setup_processing_chain_video(vm, config).catch((e) => {
+      console.log(e);
+    });
   }
   if (
     config.source_type == "IP-AUDIO" ||
     config.source_type == "PLAYER-AUDIO" ||
     config.flow_type === "Audio"
   ) {
-    await setup_processing_chain_audio(vm, config).catch((_) => {});
+    await setup_processing_chain_audio(vm, config).catch((e) => {
+      console.log(e);
+    });
   }
 }
 export async function setup_processing_chains(
@@ -421,30 +456,22 @@ export async function setup_processing_chains(
   config: z.infer<typeof ProcessingChainConfig>[],
 ) {
   console.log(`Preparing ${config.length} Processors`);
-  const rtp_audio_ins = config
-    .filter((c) => c.source_type === "IP-AUDIO")
-    .filter(unique_by("source_type"));
-  const rtp_video_ins = config
-    .filter((c) => c.source_type === "IP-VIDEO")
-    .filter(unique_by("source_type"));
-  const sdi_ins = config
-    .filter((c) => c.source_type === "SDI")
-    .filter(unique_by("source_type"));
-  const madi_ins = config
-    .filter((c) => c.source_type === "MADI")
-    .filter(unique_by("source_type"));
-  const video_players = config
-    .filter((c) => c.source_type === "PLAYER-VIDEO")
-    .filter(unique_by("source_type"));
-  const audio_players = config
-    .filter((c) => c.source_type === "PLAYER-AUDIO")
-    .filter(unique_by("source_type"));
-  const rtp_video_outs = config
-    .filter((c) => c.output_type === "IP-VIDEO")
-    .filter(unique_by("output_id"));
-  const rtp_audio_outs = config
-    .filter((c) => c.output_type === "IP-AUDIO")
-    .filter(unique_by("output_id"));
+  const rtp_audio_ins = config.filter((c) => c.source_type === "IP-AUDIO");
+  // .filter(unique_by("source_type"));
+  const rtp_video_ins = config.filter((c) => c.source_type === "IP-VIDEO");
+  // .filter(unique_by("source_type"));
+  const sdi_ins = config.filter((c) => c.source_type === "SDI");
+  // .filter(unique_by("source_type"));
+  const madi_ins = config.filter((c) => c.source_type === "MADI");
+  // .filter(unique_by("source_type"));
+  const video_players = config.filter((c) => c.source_type === "PLAYER-VIDEO");
+  // .filter(unique_by("source_type"));
+  const audio_players = config.filter((c) => c.source_type === "PLAYER-AUDIO");
+  // .filter(unique_by("source_type"));
+  const rtp_video_outs = config.filter((c) => c.output_type === "IP-VIDEO");
+  // .filter(unique_by("output_id"));
+  const rtp_audio_outs = config.filter((c) => c.output_type === "IP-AUDIO");
+  // .filter(unique_by("output_id"));
 
   // set up necessary scaffolding for routing only; no  addresses/interfaces etc are set up!
   await prepare_audio_rx(rtp_audio_ins, vm);
@@ -456,11 +483,7 @@ export async function setup_processing_chains(
   await prepare_video_tx(rtp_video_outs, vm);
   await prepare_audio_tx(rtp_audio_outs, vm);
 
-  const filtered_by_outputs = config.filter(
-    unique_by_n(["output_id", "output_type", "name"]),
-  );
-
-  for (const conf of filtered_by_outputs) {
+  for (const conf of config) {
     await setup_processing_chain(vm, conf);
   }
 }

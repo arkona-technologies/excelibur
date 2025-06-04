@@ -121,6 +121,20 @@ export async function setup_timing(vm: VAPI.AT1130.Root) {
     );
     return agent;
   });
+  const has_responses = await Promise.any(
+    agents.map((agent) =>
+      agent.slave_statistics.num_delayresps_received
+        .wait_until((d) => d > 20, { timeout: new Duration(30, "s") })
+        .then(() => true)
+        .catch(() => false),
+    ),
+  );
+  console.log(`[${vm.raw.identify()}]: switch delay_resp_mode ? ${has_responses}`);
+  if (!has_responses) {
+    for (const agent of agents) {
+      await agent.slave_settings.delay_req_routing.command.write("Unicast");
+    }
+  }
   const comb = await vm.time_flows.combinators.create_row();
   await comb.quorum.command.write(1);
   const tsrc = new Array(8).fill(null);
@@ -145,6 +159,7 @@ export async function base(vm: VAPI.AT1130.Root) {
   await setup_sdi_io(vm).catch((_) => {});
   await vm.r_t_p_receiver?.settings.clean_switching_policy.write("Whatever");
   await vm.system_clock.t_src.write(vm.p_t_p_clock.output);
+  await vm.system_clock.time_standard.command.write('TAI');
   const ltc_clock = await vm.master_clock.ltc_generators.create_row();
   await ltc_clock.t_src.command.write(
     vm.genlock!.instances.row(0).backend.output,
