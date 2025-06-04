@@ -30,9 +30,9 @@ source_id,source_type,name,lut_name,delay_frames,video_format,splitter_phase,out
 10,SDI,unused2,,,3G,,10,IP-AUDIO,Audio
 11,SDI,unused3,,,12G,,11,IP-AUDIO,Audio
 12,SDI,unused4,,,3G,,12,IP-AUDIO,Audio
-13,SDI,unused5,,,3G,,13,IP-AUDIO,Audio
-14,SDI,unused6,,,3G,,14,IP-AUDIO,Audio
-15,SDI,unused7,,,3G,,15,IP-AUDIO,Audio
+13,SDI,,,,3G,,13,IP-AUDIO,Audio
+14,SDI,,,,3G,,14,IP-AUDIO,Audio
+15,SDI,,,,3G,,15,IP-AUDIO,Audio
 0,IP-AUDIO,TX 32 (VAR SSLOW 1 Ph 1),,,,,0,SDI,Audio
 1,IP-AUDIO,TX 33 (VAR SSLOW 1 Ph 2),,,,,1,SDI,Audio
 2,IP-AUDIO,TX 34 (VAR SSLOW 1 Ph 3),,,,,2,SDI,Audio

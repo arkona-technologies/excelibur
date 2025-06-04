@@ -1,5 +1,7 @@
 import z from "zod";
 import * as VAPI from "vapi";
+import { random_int, random_string } from "vutil/random.js";
+import { range } from "vutil";
 
 export const StreamType = z.enum([
   "2110-20",
@@ -60,8 +62,22 @@ export const ProcessorType = z.enum([
   "AudioDelay",
 ]);
 
+const random_name = () => {
+  let str = "";
+  const length = random_int(4, 8);
+  for (let index = 0; index < length; index++) {
+    str += String.fromCharCode(random_int(97, 122));
+  }
+  return str;
+};
+
 export const ProcessingChainConfig = z.object({
-  name: z.string(),
+  name: z
+    .string()
+    .nullable()
+    .transform((maybe_str) => {
+      return maybe_str ? maybe_str : random_name();
+    }),
   flow_type: z.enum(["Video", "Audio"]).optional().default("Video"),
   source_type: SourceType,
   video_format: VideoFormat.nullable().default(null),
