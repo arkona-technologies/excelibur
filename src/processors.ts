@@ -1,7 +1,7 @@
 import { z } from "zod";
 import * as VAPI from "vapi";
 
-import { Duration, enforce, enforce_nonnull } from "vscript";
+import { asyncFind, Duration, enforce, enforce_nonnull } from "vscript";
 import assert from "assert";
 import { audio_ref, range, video_ref } from "vutil";
 import { ProcessingChainConfig } from "./zod_types.js";
@@ -14,6 +14,10 @@ async function prepare_madi_ins(
 ) {
   for (const conf of madi_ins) {
     await vm.i_o_module?.input.row(conf.source_id).mode.command.write("MADI");
+    await vm.i_o_module?.input.row(conf.source_id).audio_timing.command.write({
+      variant: "SynchronousOrSyntonous",
+      value: { frequency: "F48000", genlock: vm.genlock!.instances.row(0) },
+    });
   }
 }
 
@@ -41,6 +45,7 @@ async function prepare_audio_players(
         value: { time: new Duration(5, "s") },
       });
     }
+    await player?.rename(conf.name);
   }
 }
 
@@ -53,7 +58,6 @@ async function prepare_video_players(
       allow_reuse_row: true,
       index: conf.source_id,
     });
-    if (await player?.capabilities.status.read()) continue;
     await player?.capabilities.command.write({
       capacity: { variant: "Frames", value: { frames: 10 } },
       input_caliber: {
@@ -68,6 +72,10 @@ async function prepare_video_players(
         },
       },
     });
+    console.log(
+      `${player?.raw.kwl} has capabilities: ${JSON.stringify(await player?.capabilities.status.read())}`,
+    );
+    await player?.rename(conf.name);
   }
 }
 async function prepare_video_tx(
@@ -366,7 +374,6 @@ async function setup_processing_chain_audio(
   const gain = await vm.audio_gain!.instances.create_row({
     name: `${shorten_label(config.name)}`,
   });
-  console.log("target is:", target);
   await set_asrc(target?.command, gain.output);
   target = gain.a_src;
   if (config.delay_frames) {
@@ -456,22 +463,30 @@ export async function setup_processing_chains(
   config: z.infer<typeof ProcessingChainConfig>[],
 ) {
   console.log(`Preparing ${config.length} Processors`);
-  const rtp_audio_ins = config.filter((c) => c.source_type === "IP-AUDIO");
-  // .filter(unique_by("source_type"));
-  const rtp_video_ins = config.filter((c) => c.source_type === "IP-VIDEO");
-  // .filter(unique_by("source_type"));
-  const sdi_ins = config.filter((c) => c.source_type === "SDI");
-  // .filter(unique_by("source_type"));
-  const madi_ins = config.filter((c) => c.source_type === "MADI");
-  // .filter(unique_by("source_type"));
-  const video_players = config.filter((c) => c.source_type === "PLAYER-VIDEO");
-  // .filter(unique_by("source_type"));
-  const audio_players = config.filter((c) => c.source_type === "PLAYER-AUDIO");
-  // .filter(unique_by("source_type"));
-  const rtp_video_outs = config.filter((c) => c.output_type === "IP-VIDEO");
-  // .filter(unique_by("output_id"));
-  const rtp_audio_outs = config.filter((c) => c.output_type === "IP-AUDIO");
-  // .filter(unique_by("output_id"));
+  const rtp_audio_ins = config
+    .filter((c) => c.source_type === "IP-AUDIO")
+    .filter(unique_by("source_id"));
+  const rtp_video_ins = config
+    .filter((c) => c.source_type === "IP-VIDEO")
+    .filter(unique_by("source_id"));
+  const sdi_ins = config
+    .filter((c) => c.source_type === "SDI")
+    .filter(unique_by("source_id"));
+  const madi_ins = config
+    .filter((c) => c.source_type === "MADI")
+    .filter(unique_by("source_id"));
+  const video_players = config
+    .filter((c) => c.source_type === "PLAYER-VIDEO")
+    .filter(unique_by("source_id"));
+  const audio_players = config
+    .filter((c) => c.source_type === "PLAYER-AUDIO")
+    .filter(unique_by("source_id"));
+  const rtp_video_outs = config
+    .filter((c) => c.output_type === "IP-VIDEO")
+    .filter(unique_by("output_id"));
+  const rtp_audio_outs = config
+    .filter((c) => c.output_type === "IP-AUDIO")
+    .filter(unique_by("output_id"));
 
   // set up necessary scaffolding for routing only; no  addresses/interfaces etc are set up!
   await prepare_audio_rx(rtp_audio_ins, vm);
@@ -485,5 +500,23 @@ export async function setup_processing_chains(
 
   for (const conf of config) {
     await setup_processing_chain(vm, conf);
+  }
+  await setup_follower_relations(vm);
+}
+
+async function setup_follower_relations(vm: VAPI.AT1130.Root) {
+  const players_audio = (await vm.re_play?.audio.players.rows()) ?? [];
+  const players_video = (await vm.re_play?.video.players.rows()) ?? [];
+
+  for (const player of players_audio) {
+    const name = await player.row_name();
+    const maybe_leader =
+      (await asyncFind(players_video, async (pv) => {
+        const name_leader = await pv.row_name();
+        return name === name_leader;
+      })) ?? null;
+    if (maybe_leader) {
+      await player.gang.video.leader.command.write(maybe_leader);
+    }
   }
 }

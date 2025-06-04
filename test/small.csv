@@ -5,3 +5,6 @@ source_id,source_type,name,lut_name,delay_frames,video_format,splitter_phase,out
 0,IP-VIDEO,Hirebay 2,,,3G,,0,SDI,Video
 1,MADI,Hirebay 3,,,3G,,1,IP-AUDIO,Audio
 0,PLAYER-VIDEO,LINE-IDENT1,,,3G,,1,SDI,Video
+1,PLAYER-VIDEO,LINE-IDENT2,,,3G,,2,SDI,Video
+0,PLAYER-AUDIO,LINE-IDENT1,,,3G,,1,SDI,Audio
+1,PLAYER-AUDIO,LINE-IDENT2,,,3G,,2,SDI,Audio
