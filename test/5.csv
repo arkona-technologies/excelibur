@@ -17,19 +17,19 @@ source_id,source_type,name,lut_name,delay_frames,video_format,splitter_phase,out
 11,SDI,Radio Cam 2 Phase B,,,3G,1,15,IP-VIDEO,Video
 11,SDI,Radio Cam 2 Phase C,,,3G,2,16,IP-VIDEO,Video
 11,SDI,Radio Cam 2 Phase D,,,3G,3,17,IP-VIDEO,Video
-0,SDI,EVS 1 VGA,,,3G,,0,IP-AUDIO,Audio
-1,SDI,EVS 2 VGA,,,3G,,1,IP-AUDIO,Audio
-2,SDI,EVS 3 VGA,,,3G,,2,IP-AUDIO,Audio
-3,SDI,EVS 4 VGA,,,3G,,3,IP-AUDIO,Audio
-4,SDI,EVS 5 VGA,,,3G,,4,IP-AUDIO,Audio
-5,SDI,EVS 6 VGA,,,3G,,5,IP-AUDIO,Audio
-6,SDI,Xfile VGA,,,3G,,6,IP-AUDIO,Audio
-7,SDI,Edit Output,,,3G,,7,IP-AUDIO,Audio
-8,SDI,Radio Cam 1 12G,,,12G,,8,IP-AUDIO,Audio
-9,SDI,unused1,,,3G,,9,IP-AUDIO,Audio
-10,SDI,unused2,,,3G,,10,IP-AUDIO,Audio
-11,SDI,unused3,,,12G,,11,IP-AUDIO,Audio
-12,SDI,unused4,,,3G,,12,IP-AUDIO,Audio
+0,SDI,,,,3G,,0,IP-AUDIO,Audio
+1,SDI,,,,3G,,1,IP-AUDIO,Audio
+2,SDI,,,,3G,,2,IP-AUDIO,Audio
+3,SDI,,,,3G,,3,IP-AUDIO,Audio
+4,SDI,,,,3G,,4,IP-AUDIO,Audio
+5,SDI,,,,3G,,5,IP-AUDIO,Audio
+6,SDI,,,,3G,,6,IP-AUDIO,Audio
+7,SDI,,,,3G,,7,IP-AUDIO,Audio
+8,SDI,,,,12G,,8,IP-AUDIO,Audio
+9,SDI,,,,3G,,9,IP-AUDIO,Audio
+10,SDI,,,,3G,,10,IP-AUDIO,Audio
+11,SDI,,,,12G,,11,IP-AUDIO,Audio
+12,SDI,,,,3G,,12,IP-AUDIO,Audio
 13,SDI,,,,3G,,13,IP-AUDIO,Audio
 14,SDI,,,,3G,,14,IP-AUDIO,Audio
 15,SDI,,,,3G,,15,IP-AUDIO,Audio
