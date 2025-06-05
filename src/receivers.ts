@@ -73,8 +73,8 @@ export async function apply_receivers_config(
             read_speed: lock_to_genlock(rx),
             st2110_20_caliber: "ST2110_singlelink_uhd",
             supports_2110_40: true,
-            supports_clean_switching: true,
-            supports_uhd_sample_interleaved: true,
+            supports_clean_switching: false,
+            supports_uhd_sample_interleaved: false,
             jpeg_xs_caliber:
               conf.stream_type === "2110-22" ? "JPEG_XS_singlelink_uhd" : null,
             st2042_2_caliber:
