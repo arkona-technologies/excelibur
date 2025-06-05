@@ -263,7 +263,7 @@ async function setup_processing_chain_video(
   if (config.lut_name !== null) {
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding CC3D...`);
     const cc3d = await vm.color_correction?.cc3d.create_row({});
-    await cc3d?.rename(`${shorten_label(config.name)}.CC3D`).catch((_) => { });
+    await cc3d?.rename(`${shorten_label(config.name)}.CC3D`).catch((_) => {});
     await cc3d?.reserve_uhd_resources.command.write(
       config.video_format == "12G" || config.video_format == "6G",
     );
@@ -286,7 +286,7 @@ async function setup_processing_chain_video(
   if (config.delay_frames) {
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding Delay...`);
     const delay = await vm.re_play?.video.delays.create_row();
-    await delay?.rename(`${shorten_label(config.name)}.DLY`).catch((_) => { });
+    await delay?.rename(`${shorten_label(config.name)}.DLY`).catch((_) => {});
     await delay?.capabilities.command.write({
       delay_mode: config.delay_frames < 2 ? "FramePhaser" : "FrameSync_Freeze",
       capacity: {
@@ -396,13 +396,13 @@ async function setup_processing_chain_audio(
   if (config.delay_frames) {
     const delay = await vm.re_play?.audio.delays.create_row();
     await gain.rename(`${shorten_label(config.name)}.DLY`).catch();
-    await delay?.capabilities.num_channels.command.write(16).catch((_) => { });
+    await delay?.capabilities.num_channels.command.write(16).catch((_) => {});
     await delay?.capabilities.capacity.command
       .write({
         variant: "Time",
         value: { time: new Duration(config.delay_frames * 40, "ms") },
       })
-      .catch((_) => { });
+      .catch((_) => {});
     await delay?.num_outputs.write(1);
     await delay?.outputs
       .row(0)
@@ -534,6 +534,13 @@ export async function setup_processing_chains(
   const num_atx = config
     .filter((c) => c.output_type === "IP-AUDIO")
     .filter(unique_by("output_id")).length;
+  const num_vrx = config
+    .filter((c) => c.source_type === "IP-VIDEO")
+    .filter(unique_by("source_id")).length;
+  const num_arx = config
+    .filter((c) => c.source_type === "IP-AUDIO")
+    .filter(unique_by("source_id")).length;
+
   console.log("-------------------------------");
   console.log(
     `CC3D: ${num_cc3d}/${vm.color_correction?.runtime_constants.num_3d_color_correction ?? 0}`,
@@ -552,6 +559,25 @@ export async function setup_processing_chains(
     await setup_processing_chain(vm, conf);
   }
   await setup_follower_relations(vm);
+  console.log("-------------------------------");
+  console.log(
+    `CC3D: ${num_cc3d}/${vm.color_correction?.runtime_constants.num_3d_color_correction ?? 0}`,
+  );
+  console.log(`Video-Delays: ${num_vdel}/16`);
+  console.log(`Audio-Delays: ${num_adel}/256`);
+  console.log(
+    `Video IP-TX: ${num_vtx}/${vm.r_t_p_transmitter?.runtime_constants.num_videotransmitters ?? 0}`,
+  );
+  console.log(
+    `Audio IP-TX: ${num_atx}/${vm.r_t_p_transmitter?.runtime_constants.num_audiotransmitters ?? 0}`,
+  );
+  console.log(
+    `Audio IP-RX: ${num_arx}/${vm.r_t_p_receiver?.runtime_constants.max_audio_receivers ?? 0}`,
+  );
+  console.log(
+    `Video IP-RX: ${num_vrx}/${vm.r_t_p_receiver?.runtime_constants.max_video_receivers ?? 0}`,
+  );
+  console.log("-------------------------------");
 }
 
 async function setup_follower_relations(vm: VAPI.AT1130.Root) {

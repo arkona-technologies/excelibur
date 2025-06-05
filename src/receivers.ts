@@ -120,10 +120,17 @@ export async function apply_receivers_config(
           supports_clean_switching: true,
         })
         .catch((_e) => console.log(`Error setting up ${conf.label}`));
-      if (/* conf.sync */ false) {
+      const maybe_foregin_receiver = vm.r_t_p_receiver?.video_receivers.row(
+        conf.id,
+      );
+      if (conf.sync && !!maybe_foregin_receiver) {
         await rx.generic.timing.target.command.write({
-          variant: "TimeSource",
-          value: { t_src: vm.p_t_p_clock.output, use_rtp_timestamp: true },
+          variant: "ForeignReadDelay",
+          value: {
+            foreign_receiver: maybe_foregin_receiver.generic,
+            extra_delay: new Duration(0, "ms"),
+            on_backpressure: "Yield",
+          },
         });
       } else {
         await rx.generic.timing.target.command.write({
