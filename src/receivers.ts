@@ -32,7 +32,9 @@ export async function apply_receivers_config(
       }
     };
     const rx = enforce_nonnull(await get_receiver());
-    await rx.rename(conf.label);
+    await rx.rename(conf.label).catch((_) => {
+      console.log(`Renaming RX ${rx.index} failed`);
+    });
     await rx.generic.initiate_readout_on.command.write("FirstStreamPresent");
     let session = await rx.generic.hosting_session.status.read();
     if (!session) {
@@ -62,6 +64,7 @@ export async function apply_receivers_config(
     await rx.generic.timing.safety_margin.command.write(
       new Duration(500, "us"),
     );
+    await rx.media_specific.capabilities.command.write(null);
     if (rx instanceof VAPI.AT1130.RTPReceiver.VideoReceiverAsNamedTableRow) {
       if (conf.uhd) {
         await rx.media_specific.capabilities.command
@@ -109,16 +112,25 @@ export async function apply_receivers_config(
       }
     }
     if (rx instanceof VAPI.AT1130.RTPReceiver.AudioReceiverAsNamedTableRow) {
-      await rx.media_specific.capabilities.command.write({
-        payload_limit: "AtMost960Bytes",
-        read_speed: lock_to_genlock(rx),
-        channel_capacity: conf.channel_capacity,
-        supports_clean_switching: true,
-      });
-      await rx.generic.timing.target.command.write({
-        variant: "IngressPlusX",
-        value: { read_delay: new Duration(2, "ms") },
-      });
+      await rx.media_specific.capabilities.command
+        .write({
+          payload_limit: "AtMost1984Bytes",
+          read_speed: lock_to_genlock(rx),
+          channel_capacity: conf.channel_capacity,
+          supports_clean_switching: true,
+        })
+        .catch((_e) => console.log(`Error setting up ${conf.label}`));
+      if (/* conf.sync */ false) {
+        await rx.generic.timing.target.command.write({
+          variant: "TimeSource",
+          value: { t_src: vm.p_t_p_clock.output, use_rtp_timestamp: true },
+        });
+      } else {
+        await rx.generic.timing.target.command.write({
+          variant: "IngressPlusX",
+          value: { read_delay: new Duration(2, "ms") },
+        });
+      }
     }
   }
   for (const s of await vm.r_t_p_receiver!.sessions.rows()) {

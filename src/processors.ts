@@ -45,7 +45,7 @@ async function prepare_audio_players(
         value: { time: new Duration(5, "s") },
       });
     }
-    await player?.rename(conf.name);
+    await player?.rename(shorten_label(conf.name));
   }
 }
 
@@ -75,7 +75,7 @@ async function prepare_video_players(
     console.log(
       `${player?.raw.kwl} has capabilities: ${JSON.stringify(await player?.capabilities.status.read())}`,
     );
-    await player?.rename(conf.name);
+    await player?.rename(shorten_label(conf.name));
   }
 }
 async function prepare_video_tx(
@@ -96,7 +96,7 @@ async function prepare_video_tx(
         ? "b12_0Gb"
         : "b3_0Gb",
     );
-    await tx.rename(conf.name);
+    await tx.rename(conf.name.substring(0, 32));
     if (maybe_session) {
       vm.raw.write_unchecked(
         { kwl: maybe_session.raw.kwl, kw: "active_command" },
@@ -114,7 +114,7 @@ async function prepare_audio_tx(
       allow_reuse_row: true,
       index: conf.output_id,
     });
-    await tx.rename(conf.name);
+    await tx.rename(shorten_label(conf.name));
   }
 }
 
@@ -141,7 +141,7 @@ async function prepare_video_rx(
         supports_uhd_sample_interleaved: true,
       })
       .catch((e) => console.log(e));
-    await rx.rename(conf.name);
+    await rx.rename(shorten_label(conf.name));
   }
 }
 
@@ -164,7 +164,7 @@ async function prepare_audio_rx(
         supports_clean_switching: true,
       })
       .catch((e) => console.log(e));
-    await rx.rename(conf.name);
+    await rx.rename(shorten_label(conf.name));
   }
 }
 
@@ -226,7 +226,9 @@ async function setup_processing_chain_video(
   const find_splitter = async (v_src: VAPI.AT1130.Video.Essence) => {
     enforce(!!vm.splitter);
     const splitters = await vm.splitter.instances.rows();
-    console.log(`[${vm.raw.identify()}] Searching for Splitter with v_src == ${v_src.raw.kwl}`);
+    console.log(
+      `[${vm.raw.identify()}] Searching for Splitter with v_src == ${v_src.raw.kwl}`,
+    );
     for (const splitter of splitters) {
       const v_src_split = await splitter.v_src.status.read();
       if (v_src.raw.kwl == v_src_split?.raw.kwl) return splitter;
@@ -239,7 +241,9 @@ async function setup_processing_chain_video(
       `[${vm.raw.identify()}] ${config.name}: Using Splitter; ignoring cc3d and delay... (todo)`,
     );
     let maybe_splitter = await find_splitter(source);
-    console.log(`[${vm.raw.identify()}] ${config.name} -> ${maybe_splitter?.raw.kwl}`);
+    console.log(
+      `[${vm.raw.identify()}] ${config.name} -> ${maybe_splitter?.raw.kwl}`,
+    );
     if (!maybe_splitter) {
       maybe_splitter = await vm.splitter!.instances.create_row({
         name: `${shorten_label(config.name)}.SPL`,
@@ -258,9 +262,8 @@ async function setup_processing_chain_video(
 
   if (config.lut_name !== null) {
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding CC3D...`);
-    const cc3d = await vm.color_correction?.cc3d.create_row({
-      name: `${shorten_label(config.name)}.CC3D`,
-    });
+    const cc3d = await vm.color_correction?.cc3d.create_row({});
+    await cc3d?.rename(`${shorten_label(config.name)}.CC3D`).catch((_) => { });
     await cc3d?.reserve_uhd_resources.command.write(
       config.video_format == "12G" || config.video_format == "6G",
     );
@@ -282,9 +285,8 @@ async function setup_processing_chain_video(
 
   if (config.delay_frames) {
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding Delay...`);
-    const delay = await vm.re_play?.video.delays.create_row({
-      name: `${shorten_label(config.name)}.DLY`,
-    });
+    const delay = await vm.re_play?.video.delays.create_row();
+    await delay?.rename(`${shorten_label(config.name)}.DLY`).catch((_) => { });
     await delay?.capabilities.command.write({
       delay_mode: config.delay_frames < 2 ? "FramePhaser" : "FrameSync_Freeze",
       capacity: {
@@ -511,6 +513,40 @@ export async function setup_processing_chains(
   await prepare_madi_ins(madi_ins, vm);
   await prepare_video_tx(rtp_video_outs, vm);
   await prepare_audio_tx(rtp_audio_outs, vm);
+
+  const num_cc3d = config.filter((c) => c.lut_name).length;
+  const num_vdel = config
+    .filter((c) => c.flow_type === "Video")
+    .filter((c) => c.output_type === "SDI" || c.output_type === "IP-VIDEO")
+    .filter((c) => c.delay_frames).length;
+  const num_adel = config
+    .filter((c) => c.flow_type === "Audio")
+    .filter(
+      (c) =>
+        c.output_type === "SDI" ||
+        c.output_type === "IP-AUDIO" ||
+        c.output_type === "MADI",
+    )
+    .filter((c) => c.delay_frames).length;
+  const num_vtx = config
+    .filter((c) => c.output_type === "IP-VIDEO")
+    .filter(unique_by("output_id")).length;
+  const num_atx = config
+    .filter((c) => c.output_type === "IP-AUDIO")
+    .filter(unique_by("output_id")).length;
+  console.log("-------------------------------");
+  console.log(
+    `CC3D: ${num_cc3d}/${vm.color_correction?.runtime_constants.num_3d_color_correction ?? 0}`,
+  );
+  console.log(`Video-Delays: ${num_vdel}/16`);
+  console.log(`Audio-Delays: ${num_adel}/256`);
+  console.log(
+    `Video IP-TX: ${num_vtx}/${vm.r_t_p_transmitter?.runtime_constants.num_videotransmitters ?? 0}`,
+  );
+  console.log(
+    `Audio IP-TX: ${num_atx}/${vm.r_t_p_transmitter?.runtime_constants.num_audiotransmitters ?? 0}`,
+  );
+  console.log("-------------------------------");
 
   for (const conf of config) {
     await setup_processing_chain(vm, conf);
