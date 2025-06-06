@@ -8,6 +8,7 @@ import { base } from "./base.js";
 import {
   ProcessingChainConfig,
   ReceiverConfig,
+  refine_config as refine_configs,
   SenderConfig,
 } from "./zod_types.js";
 import { setup_processing_chains } from "./processors.js";
@@ -21,7 +22,8 @@ const processors = fs.readFileSync(
 const tx = fs.readFileSync(enforce_nonnull(process.env["TX"]), "utf8");
 const rx = fs.readFileSync(enforce_nonnull(process.env["RX"]), "utf8");
 
-const processors_config = parse_csv(processors, ProcessingChainConfig);
+const raw_config = parse_csv(processors, ProcessingChainConfig);
+const processors_config = refine_configs(raw_config);
 const tx_config = parse_csv(tx, SenderConfig);
 const rx_config = parse_csv(rx, ReceiverConfig);
 

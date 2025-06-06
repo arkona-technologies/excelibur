@@ -262,66 +262,83 @@ async function setup_processing_chain_video(
 
   if (config.lut_name !== null) {
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding CC3D...`);
-    const cc3d = await vm.color_correction?.cc3d.create_row({});
-    await cc3d?.rename(`${shorten_label(config.name)}.CC3D`).catch((_) => {});
-    await cc3d?.reserve_uhd_resources.command.write(
-      config.video_format == "12G" || config.video_format == "6G",
-    );
-    const fallback_lut = "3-NBCU_HLG2SDR_DL_v1";
     try {
-      const has_lut = await fetch(`$http://{vm.raw.ip}/cube`)
-        .then((r) => r.json())
-        .then((j: any[]) => j.some((l) => l.name === config.lut_name))
-        .catch((_) => false);
-      await cc3d?.lut_name.command.write(
-        has_lut ? config.lut_name : fallback_lut,
+      const cc3d = await vm.color_correction?.cc3d.create_row({});
+      await cc3d?.rename(`${shorten_label(config.name)}.CC3D`).catch((_) => { });
+      await cc3d?.reserve_uhd_resources.command.write(
+        config.video_format == "12G" || config.video_format == "6G",
       );
+      const fallback_lut = "3-NBCU_HLG2SDR_DL_v1";
+      try {
+        const has_lut = await fetch(`$http://{vm.raw.ip}/cube`)
+          .then((r) => r.json())
+          .then((j: any[]) => j.some((l) => l.name === config.lut_name))
+          .catch((_) => false);
+        await cc3d?.lut_name.command.write(
+          has_lut ? config.lut_name : fallback_lut,
+        );
+      } catch (e) {
+        await cc3d?.lut_name.command.write(fallback_lut);
+      }
+      await set_vsrc(target?.command, enforce_nonnull(cc3d?.output));
+      target = cc3d?.v_src;
     } catch (e) {
-      await cc3d?.lut_name.command.write(fallback_lut);
+      console.log(
+        `[${vm.raw.identify()}] ${config.name}: CC3D Setup failed: `,
+        e,
+      );
     }
-    await set_vsrc(target?.command, enforce_nonnull(cc3d?.output));
-    target = cc3d?.v_src;
   }
 
   if (config.delay_frames) {
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding Delay...`);
-    const delay = await vm.re_play?.video.delays.create_row();
-    await delay?.rename(`${shorten_label(config.name)}.DLY`).catch((_) => {});
-    await delay?.capabilities.command.write({
-      delay_mode: config.delay_frames < 2 ? "FramePhaser" : "FrameSync_Freeze",
-      capacity: {
-        variant: "Frames",
-        value: { frames: config.delay_frames },
-      },
-      input_caliber: {
-        variant: "Single",
-        value: {
-          add_blanking: true,
-          constraints: {
-            variant: "Bandwidth",
-            value: {
-              max_bandwidth: ["12G", "6G"].includes(config.video_format ?? "")
-                ? "b12_0Gb"
-                : "b3_0Gb",
+    try {
+      const delay = await vm.re_play?.video.delays.create_row();
+      await delay?.rename(`${shorten_label(config.name)}.DLY`).catch((_) => { });
+      await delay?.capabilities.command.write({
+        delay_mode:
+          config.delay_frames < 2 ? "FramePhaser" : "FrameSync_Freeze",
+        capacity: {
+          variant: "Frames",
+          value: { frames: config.delay_frames },
+        },
+        input_caliber: {
+          variant: "Single",
+          value: {
+            add_blanking: true,
+            constraints: {
+              variant: "Bandwidth",
+              value: {
+                max_bandwidth: ["12G", "6G"].includes(config.video_format ?? "")
+                  ? "b12_0Gb"
+                  : "b3_0Gb",
+              },
             },
           },
         },
-      },
-    });
-    const out = await delay?.outputs.create_row();
-    await out?.t_src.command.write(vm.genlock!.instances.row(0).backend.output);
-    await out?.delay.offset.command
-      .write({
-        variant: "Frames",
-        value: { frames: config.delay_frames },
-      })
-      .catch((_e) =>
-        console.log(
-          `[${vm.raw.identify()}] video delay refuses to accept delay setting of ${config.delay_frames?.toString()} ; contact support via clemens@arkonatech.com`,
-        ),
+      });
+      const out = await delay?.outputs.create_row();
+      await out?.t_src.command.write(
+        vm.genlock!.instances.row(0).backend.output,
       );
-    await set_vsrc(target.command, out!.video);
-    target = delay?.inputs.row(0).v_src;
+      await out?.delay.offset.command
+        .write({
+          variant: "Frames",
+          value: { frames: config.delay_frames },
+        })
+        .catch((_e) =>
+          console.log(
+            `[${vm.raw.identify()}] video delay refuses to accept delay setting of ${config.delay_frames?.toString()} ; contact support via clemens@arkonatech.com`,
+          ),
+        );
+      await set_vsrc(target.command, out!.video);
+      target = delay?.inputs.row(0).v_src;
+    } catch (e) {
+      console.log(
+        `[${vm.raw.identify()}] ${config.name}: Delay Setup failed: `,
+        e,
+      );
+    }
   }
 
   await set_vsrc(target.command, source);
@@ -390,19 +407,23 @@ async function setup_processing_chain_audio(
   await prepare_target();
   enforce(!!target, "Target is not present");
   const gain = await vm.audio_gain!.instances.create_row();
-  await gain.rename(`${shorten_label(config.name)}`).catch();
+  await gain
+    .rename(
+      `${shorten_label(config.name)}.LVL.${config.output_type.toString()[0]}`,
+    )
+    .catch((_) => { });
   await set_asrc(target?.command, gain.output);
   target = gain.a_src;
   if (config.delay_frames) {
     const delay = await vm.re_play?.audio.delays.create_row();
-    await gain.rename(`${shorten_label(config.name)}.DLY`).catch();
-    await delay?.capabilities.num_channels.command.write(16).catch((_) => {});
+    await gain.rename(`${shorten_label(config.name)}.DLY`).catch((_) => { });
+    await delay?.capabilities.num_channels.command.write(16).catch((_) => { });
     await delay?.capabilities.capacity.command
       .write({
         variant: "Time",
         value: { time: new Duration(config.delay_frames * 40, "ms") },
       })
-      .catch((_) => {});
+      .catch((_) => { });
     await delay?.num_outputs.write(1);
     await delay?.outputs
       .row(0)
@@ -412,10 +433,13 @@ async function setup_processing_chain_audio(
     target = delay?.inputs.a_src;
   }
   const shuffler = enforce_nonnull(
-    await vm.audio_shuffler?.instances.create_row({
-      name: `${shorten_label(config.name)}.SHF`,
-    }),
+    await vm.audio_shuffler?.instances.create_row({}),
   );
+  await shuffler
+    .rename(
+      `${shorten_label(config.name)}.SHF.${config.output_type.toString()[0]}`,
+    )
+    .catch((_) => { });
   await shuffler.genlock.command.write(vm.genlock!.instances.row(0));
   await shuffler.cross_fade.write(new Duration(30, "ms"));
   await set_asrc(target?.command, shuffler!.output);
@@ -541,43 +565,57 @@ export async function setup_processing_chains(
     .filter((c) => c.source_type === "IP-AUDIO")
     .filter(unique_by("source_id")).length;
 
-  console.log("-------------------------------");
-  console.log(
-    `CC3D: ${num_cc3d}/${vm.color_correction?.runtime_constants.num_3d_color_correction ?? 0}`,
-  );
-  console.log(`Video-Delays: ${num_vdel}/16`);
-  console.log(`Audio-Delays: ${num_adel}/256`);
-  console.log(
-    `Video IP-TX: ${num_vtx}/${vm.r_t_p_transmitter?.runtime_constants.num_videotransmitters ?? 0}`,
-  );
-  console.log(
-    `Audio IP-TX: ${num_atx}/${vm.r_t_p_transmitter?.runtime_constants.num_audiotransmitters ?? 0}`,
-  );
-  console.log("-------------------------------");
+  const table = [];
+  table.push({
+    name: "CC3D",
+    allocated: num_cc3d,
+    max: vm.color_correction?.runtime_constants.num_3d_color_correction ?? 0,
+  });
+  table.push({
+    name: "Video-Delay",
+    allocated: num_vdel,
+    max: 16,
+  });
+  table.push({
+    name: "Audio-Delay",
+    allocated: num_adel,
+    max: 256,
+  });
+  table.push({
+    name: "Video-IP-TX",
+    allocated: num_vtx,
+    max: vm.r_t_p_transmitter?.runtime_constants.num_videotransmitters ?? 0,
+  });
+  table.push({
+    name: "Video-IP-TX",
+    allocated: num_vtx,
+    max: vm.r_t_p_transmitter?.runtime_constants.num_videotransmitters ?? 0,
+  });
+  table.push({
+    name: "Audio-IP-TX",
+    allocated: num_atx,
+    max: vm.r_t_p_transmitter?.runtime_constants.num_audiotransmitters ?? 0,
+  });
+  table.push({
+    name: "Video-IP-RX",
+    allocated: num_vrx,
+    max:vm.r_t_p_receiver?.runtime_constants.max_video_receivers ?? 0,
+  });
+  table.push({
+    name: "Audio-IP-RX",
+    allocated: num_arx,
+    max:vm.r_t_p_receiver?.runtime_constants.max_audio_receivers ?? 0,
+  });
+
+  console.table(table);
+
 
   for (const conf of config) {
     await setup_processing_chain(vm, conf);
   }
   await setup_follower_relations(vm);
-  console.log("-------------------------------");
-  console.log(
-    `CC3D: ${num_cc3d}/${vm.color_correction?.runtime_constants.num_3d_color_correction ?? 0}`,
-  );
-  console.log(`Video-Delays: ${num_vdel}/16`);
-  console.log(`Audio-Delays: ${num_adel}/256`);
-  console.log(
-    `Video IP-TX: ${num_vtx}/${vm.r_t_p_transmitter?.runtime_constants.num_videotransmitters ?? 0}`,
-  );
-  console.log(
-    `Audio IP-TX: ${num_atx}/${vm.r_t_p_transmitter?.runtime_constants.num_audiotransmitters ?? 0}`,
-  );
-  console.log(
-    `Audio IP-RX: ${num_arx}/${vm.r_t_p_receiver?.runtime_constants.max_audio_receivers ?? 0}`,
-  );
-  console.log(
-    `Video IP-RX: ${num_vrx}/${vm.r_t_p_receiver?.runtime_constants.max_video_receivers ?? 0}`,
-  );
-  console.log("-------------------------------");
+
+  console.table(table);
 }
 
 async function setup_follower_relations(vm: VAPI.AT1130.Root) {

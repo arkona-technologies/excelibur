@@ -147,6 +147,7 @@ export async function setup_timing(vm: VAPI.AT1130.Root) {
   for (const [idx, agent] of enumerate(agents)) tsrc[idx] = agent.output;
   await comb.t_src.command.write(tsrc);
   await vm.p_t_p_clock.t_src.command.write(comb.output);
+  await vm.p_t_p_clock.mode.write('LockToInput');
   for (const genlock of [...vm.genlock!.instances]) {
     await genlock.t_src.command.write(vm.p_t_p_clock.output);
   }

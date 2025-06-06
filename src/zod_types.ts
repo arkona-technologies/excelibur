@@ -76,7 +76,7 @@ export const ProcessingChainConfig = z.object({
     .string()
     .nullable()
     .transform((maybe_str) => {
-      return maybe_str ? maybe_str : random_name();
+      return maybe_str ? maybe_str : "";
     }),
   flow_type: z.enum(["Video", "Audio"]).optional().default("Video"),
   source_type: SourceType,
@@ -88,3 +88,14 @@ export const ProcessingChainConfig = z.object({
   output_type: OutputType,
   output_id: z.coerce.number().int("output_id needs to be an integer!"),
 });
+
+export function refine_config(
+  configs: z.infer<typeof ProcessingChainConfig>[],
+): z.infer<typeof ProcessingChainConfig>[] {
+  for (const conf of configs) {
+    if (conf.name === "") {
+      conf.name = `${conf.output_type}/${conf.output_id}.${conf.flow_type}`;
+    }
+  }
+  return configs;
+}
