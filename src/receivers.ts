@@ -9,6 +9,12 @@ export async function apply_receivers_config(
   vm: VAPI.AT1130.Root,
   config: z.infer<typeof ReceiverConfig>[],
 ) {
+  if (config.filter(c=>c.uhd).filter(c=>c.stream_type != '2110-30').length > 8) {
+    await vm.r_t_p_receiver?.settings.buffer_sizes.command.write({
+      ...(await vm.r_t_p_receiver.settings.buffer_sizes.status.read()),
+      for_2110_20_uhd_singlelink: "UpTo48MB",
+    });
+  }
   for (const conf of config) {
     console.log(
       `[${vm.raw.identify()}] Applying receiver-config @${conf.stream_type}/${conf.id} with label ${conf.label}`,

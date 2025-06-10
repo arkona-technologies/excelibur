@@ -1,7 +1,13 @@
 import { z } from "zod";
 import * as VAPI from "vapi";
 
-import { asyncFind, Duration, enforce, enforce_nonnull } from "vscript";
+import {
+  asyncFind,
+  Duration,
+  enforce,
+  enforce_eq,
+  enforce_nonnull,
+} from "vscript";
 import assert from "assert";
 import { audio_ref, range, video_ref } from "vutil";
 import { ProcessingChainConfig } from "./zod_types.js";
@@ -122,6 +128,13 @@ async function prepare_video_rx(
   rtp_video_ins: z.infer<typeof ProcessingChainConfig>[],
   vm: VAPI.AT1130.Root,
 ) {
+  enforce(!!vm.r_t_p_receiver);
+  if (rtp_video_ins.length > 8) {
+    await vm.r_t_p_receiver?.settings.buffer_sizes.command.write({
+      ...(await vm.r_t_p_receiver.settings.buffer_sizes.status.read()),
+      for_2110_20_uhd_singlelink: "UpTo48MB",
+    });
+  }
   for (const conf of rtp_video_ins) {
     const rx = await vm.r_t_p_receiver!.video_receivers.create_row({
       allow_reuse_row: true,
@@ -138,7 +151,7 @@ async function prepare_video_rx(
         supports_2022_6: true,
         st2110_20_caliber: "ST2110_upto_3G",
         supports_2110_40: true,
-        supports_uhd_sample_interleaved: true,
+        supports_uhd_sample_interleaved: false,
       })
       .catch((e) => console.log(e));
     await rx.rename(shorten_label(conf.name));
@@ -264,7 +277,7 @@ async function setup_processing_chain_video(
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding CC3D...`);
     try {
       const cc3d = await vm.color_correction?.cc3d.create_row({});
-      await cc3d?.rename(`${shorten_label(config.name)}.CC3D`).catch((_) => { });
+      await cc3d?.rename(`${shorten_label(config.name)}.CC3D`).catch((_) => {});
       await cc3d?.reserve_uhd_resources.command.write(
         config.video_format == "12G" || config.video_format == "6G",
       );
@@ -294,7 +307,7 @@ async function setup_processing_chain_video(
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding Delay...`);
     try {
       const delay = await vm.re_play?.video.delays.create_row();
-      await delay?.rename(`${shorten_label(config.name)}.DLY`).catch((_) => { });
+      await delay?.rename(`${shorten_label(config.name)}.DLY`).catch((_) => {});
       await delay?.capabilities.command.write({
         delay_mode:
           config.delay_frames < 2 ? "FramePhaser" : "FrameSync_Freeze",
@@ -411,19 +424,19 @@ async function setup_processing_chain_audio(
     .rename(
       `${shorten_label(config.name)}.LVL.${config.output_type.toString()[0]}`,
     )
-    .catch((_) => { });
+    .catch((_) => {});
   await set_asrc(target?.command, gain.output);
   target = gain.a_src;
   if (config.delay_frames) {
     const delay = await vm.re_play?.audio.delays.create_row();
-    await gain.rename(`${shorten_label(config.name)}.DLY`).catch((_) => { });
-    await delay?.capabilities.num_channels.command.write(16).catch((_) => { });
+    await gain.rename(`${shorten_label(config.name)}.DLY`).catch((_) => {});
+    await delay?.capabilities.num_channels.command.write(16).catch((_) => {});
     await delay?.capabilities.capacity.command
       .write({
         variant: "Time",
         value: { time: new Duration(config.delay_frames * 40, "ms") },
       })
-      .catch((_) => { });
+      .catch((_) => {});
     await delay?.num_outputs.write(1);
     await delay?.outputs
       .row(0)
@@ -439,7 +452,7 @@ async function setup_processing_chain_audio(
     .rename(
       `${shorten_label(config.name)}.SHF.${config.output_type.toString()[0]}`,
     )
-    .catch((_) => { });
+    .catch((_) => {});
   await shuffler.genlock.command.write(vm.genlock!.instances.row(0));
   await shuffler.cross_fade.write(new Duration(30, "ms"));
   await set_asrc(target?.command, shuffler!.output);
@@ -599,16 +612,15 @@ export async function setup_processing_chains(
   table.push({
     name: "Video-IP-RX",
     allocated: num_vrx,
-    max:vm.r_t_p_receiver?.runtime_constants.max_video_receivers ?? 0,
+    max: vm.r_t_p_receiver?.runtime_constants.max_video_receivers ?? 0,
   });
   table.push({
     name: "Audio-IP-RX",
     allocated: num_arx,
-    max:vm.r_t_p_receiver?.runtime_constants.max_audio_receivers ?? 0,
+    max: vm.r_t_p_receiver?.runtime_constants.max_audio_receivers ?? 0,
   });
 
   console.table(table);
-
 
   for (const conf of config) {
     await setup_processing_chain(vm, conf);
