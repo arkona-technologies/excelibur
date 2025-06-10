@@ -97,11 +97,25 @@ async function prepare_video_tx(
     if (maybe_session) {
       await maybe_session.active.command.write(false);
     }
-    await tx.constraints.max_bandwidth.command.write(
-      conf.video_format == "12G" || conf.video_format == "6G"
-        ? "b12_0Gb"
-        : "b3_0Gb",
-    );
+    function get_bandwidth(): VAPI.Definitions.Bandwidth {
+      switch (conf.video_format) {
+        case "1.5G":
+          return "b1_5Gb";
+        case "3G":
+          return "b3_0Gb";
+        case "6G":
+          return "b6_0Gb" as any;
+        case "12G":
+          return "b12_0Gb";
+      }
+      return "b3_0Gb";
+    }
+    try {
+      await tx.constraints.max_bandwidth.command.write(get_bandwidth());
+    } catch (e) {
+      console.log(e);
+      await tx.constraints.max_bandwidth.command.write("b1_5Gb");
+    }
     await tx.rename(conf.name.substring(0, 32));
     if (maybe_session) {
       vm.raw.write_unchecked(
