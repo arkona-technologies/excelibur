@@ -10,7 +10,9 @@ export async function apply_senders_config(
   config: z.infer<typeof SenderConfig>[],
 ) {
   for (const conf of config) {
-    console.log(`[${vm.raw.identify()}] Applying sender-config @${conf.stream_type}/${conf.id} with label ${conf.label}`);
+    console.log(
+      `[${vm.raw.identify()}] Applying sender-config @${conf.stream_type}/${conf.id} with label ${conf.label}`,
+    );
     const get_transmitter = () => {
       switch (conf.stream_type) {
         case "2110-20":
@@ -36,7 +38,9 @@ export async function apply_senders_config(
         name: `${conf.label}`,
       });
       await session?.interfaces.command.write({
-        primary: await find_best_vifc(vm.network_interfaces.ports.row(0)),
+        primary: conf.primary_destination_address
+          ? await find_best_vifc(vm.network_interfaces.ports.row(0))
+          : null,
         secondary: conf.secondary_destination_address
           ? await find_best_vifc(vm.network_interfaces.ports.row(1))
           : null,
@@ -63,13 +67,15 @@ export async function apply_senders_config(
       }
     };
     const ip_config = get_ip_config();
-    await ip_config.primary.dst_address.command.write(
-      `${conf.primary_destination_address}:${conf.primary_destination_port}`,
-    );
-    await ip_config.primary.header_settings.command.write({
-      ...(await ip_config.primary.header_settings.status.read()),
-      payload_type: conf.payload_type,
-    });
+    if (conf.primary_destination_address) {
+      await ip_config.primary.dst_address.command.write(
+        `${conf.primary_destination_address}:${conf.primary_destination_port ?? 9000}`,
+      );
+      await ip_config.primary.header_settings.command.write({
+        ...(await ip_config.primary.header_settings.status.read()),
+        payload_type: conf.payload_type,
+      });
+    }
     if (conf.secondary_destination_address) {
       await ip_config.secondary.dst_address.command.write(
         `${conf.secondary_destination_address}:${conf.secondary_destination_port ?? 9000}`,
@@ -126,7 +132,6 @@ export async function apply_senders_config(
         } as any);
       }
     }
-
   }
 
   for (const s of await vm.r_t_p_transmitter!.sessions.rows()) {

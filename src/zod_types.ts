@@ -20,9 +20,9 @@ export const SenderConfig = z.object({
   label: z.string(),
   name: z.string(),
   stream_type: StreamType,
-  primary_destination_address: z.string().ip(),
+  primary_destination_address: z.string().ip().nullable(),
   secondary_destination_address: z.string().ip().nullable(),
-  primary_destination_port: z.coerce.number().int(),
+  primary_destination_port: z.coerce.number().int().nullable(),
   secondary_destination_port: z.coerce.number().int().nullable(),
   payload_type: z.coerce.number().int(),
 });
