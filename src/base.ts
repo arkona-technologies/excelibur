@@ -147,7 +147,12 @@ export async function setup_timing(vm: VAPI.AT1130.Root) {
   for (const [idx, agent] of enumerate(agents)) tsrc[idx] = agent.output;
   await comb.t_src.command.write(tsrc);
   await vm.p_t_p_clock.t_src.command.write(comb.output);
-  await vm.p_t_p_clock.mode.write('LockToInput');
+  await vm.p_t_p_clock.mode.write("LockToInput");
+
+  if (agents.length == 0) {
+    console.log("Couldn't find suitable Masters! Using InternalOscillator");
+    await vm.p_t_p_clock.mode.write("UseInternalOscillator");
+  }
   for (const genlock of [...vm.genlock!.instances]) {
     await genlock.t_src.command.write(vm.p_t_p_clock.output);
   }
@@ -162,15 +167,24 @@ export async function setup_timing(vm: VAPI.AT1130.Root) {
 
 export async function base(vm: VAPI.AT1130.Root) {
   await scrub(vm, { kwl_whitelist: [/system.nmos/, /system.services/] });
+  const ports = await vm.p_t_p_flows.ports.rows();
+  await Promise.any(
+    ports.map((p) =>
+      p.active.wait_until((active) => active, {
+        timeout: new Duration(1, "min"),
+      }),
+    ),
+  );
   await setup_timing(vm);
   await setup_sdi_io(vm).catch((_) => {});
   await vm.r_t_p_receiver?.settings.clean_switching_policy.write("Whatever");
+  await vm.r_t_p_transmitter?.settings.reserved_bandwidth.write(2);
   await vm.system_clock.t_src.write(vm.p_t_p_clock.output);
   await vm.system_clock.time_standard.command.write("TAI");
   const ltc_clock = await vm.master_clock.ltc_generators.create_row();
-  await ltc_clock.t_src.command.write(
-    vm.genlock!.instances.row(0).backend.output,
-  ).catch(_=>{});
+  await ltc_clock.t_src.command
+    .write(vm.genlock!.instances.row(0).backend.output)
+    .catch((_) => {});
   await ltc_clock.frame_rate.command.write("f25");
   await vm.audio_shuffler?.global_cross_fade.write(new Duration(50, "ms"));
   console.log(`Finished Base Setup @${vm.raw.identify()}`);
