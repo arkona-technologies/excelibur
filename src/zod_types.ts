@@ -18,7 +18,12 @@ export const SwitchType = z
 export const SenderConfig = z.object({
   id: z.coerce.number(),
   label: z.string(),
-  name: z.string(),
+  name: z
+    .string()
+    .nullable()
+    .transform((maybe_str) => {
+      return maybe_str ? maybe_str : "";
+    }),
   stream_type: StreamType,
   primary_destination_address: z.string().ip().nullable(),
   secondary_destination_address: z.string().ip().nullable(),
