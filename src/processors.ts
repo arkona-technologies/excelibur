@@ -116,7 +116,7 @@ async function prepare_video_tx(
       console.log(e);
       await tx.constraints.max_bandwidth.command.write("b1_5Gb");
     }
-    await tx.rename(conf.name.substring(0, 32));
+    // await tx.rename(conf.name.substring(0, 32));
     if (maybe_session) {
       vm.raw.write_unchecked(
         { kwl: maybe_session.raw.kwl, kw: "active_command" },
@@ -134,7 +134,7 @@ async function prepare_audio_tx(
       allow_reuse_row: true,
       index: conf.output_id,
     });
-    await tx.rename(shorten_label(conf.name));
+    // await tx.rename(shorten_label(conf.name));
   }
 }
 
@@ -168,7 +168,7 @@ async function prepare_video_rx(
         supports_uhd_sample_interleaved: false,
       })
       .catch((e) => console.log(e));
-    await rx.rename(shorten_label(conf.name));
+    // await rx.rename(shorten_label(conf.name));
   }
 }
 
@@ -191,7 +191,7 @@ async function prepare_audio_rx(
         supports_clean_switching: true,
       })
       .catch((e) => console.log(e));
-    await rx.rename(shorten_label(conf.name));
+    // await rx.rename(shorten_label(conf.name));
   }
 }
 
