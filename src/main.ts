@@ -2,7 +2,7 @@ import { parse_csv } from "./csv.js";
 import * as VAPI from "vapi";
 
 import fs from "fs";
-import { Duration, enforce, enforce_nonnull, pause } from "vscript";
+import {  enforce, enforce_nonnull, } from "vscript";
 import { open_connection } from "./connection.js";
 import { base } from "./base.js";
 import {

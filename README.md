@@ -10,6 +10,9 @@ There are 2 ways to use this right now.
 
 using it via cli like so `npx tsc && URL=ws://172.16.163.2 PROC=./test/cb-with-splitter.csv TX=./test/tx.csv RX=./test/rx.csv node build/main.js`
 
+### With .xlsx file
+using it via cli like so `npx tsc && URL=ws://172.16.163.2 SHEET=/path/to/config.xlsx  node build/main.js`
+
 ### Web UI
 
 Using the minimal web-ui/webserver found under `src/server.ts` that uses the html/css from `./web`. 
