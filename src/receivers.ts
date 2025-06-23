@@ -48,8 +48,8 @@ export async function apply_receivers_config(
         name: `${conf.label}`,
       });
       await session?.interfaces.command.write({
-        primary: await find_best_vifc(vm.network_interfaces.ports.row(0)),
-        secondary: await find_best_vifc(vm.network_interfaces.ports.row(1)),
+        primary: await find_best_vifc(vm.network_interfaces.ports.row(0),conf.vlan_id),
+        secondary: await find_best_vifc(vm.network_interfaces.ports.row(1),conf.vlan_id),
       });
       await rx.generic.hosting_session.command.write(session);
     }
