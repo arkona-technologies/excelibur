@@ -15,6 +15,14 @@ export const SwitchType = z
   .enum(["Patch", "MakeBeforeBreak", "BreakBeforeMake"])
   .default("Patch");
 
+export const VLAN_ID = z
+  .string()
+  .optional()
+  .transform((id) => {
+    if (!id || !!!id) return null;
+    const maybe_num = parseInt(id);
+    return isNaN(maybe_num) ? null : maybe_num;
+  });
 export const SenderConfig = z.object({
   id: z.coerce.number(),
   label: z.string(),
@@ -24,7 +32,9 @@ export const SenderConfig = z.object({
   primary_destination_port: z.coerce.number().int().nullable(),
   secondary_destination_port: z.coerce.number().int().nullable(),
   payload_type: z.coerce.number().int(),
+  vlan_id: VLAN_ID,
 });
+
 
 export const ReceiverConfig = z.object({
   id: z.coerce.number(),
@@ -37,14 +47,7 @@ export const ReceiverConfig = z.object({
     .transform((v) => v.toLowerCase() === "true"),
   channel_capacity: z.coerce.number().optional().default(16),
   switch_type: SwitchType,
-  vlan_id: z
-    .string()
-    .optional()
-    .transform((id) => {
-      if (!id || !(!!id)) return null;
-      const maybe_num = parseInt(id);
-      return isNaN(maybe_num) ? null : maybe_num;
-    }),
+  vlan_id: VLAN_ID,
 });
 
 export const SourceType = z.enum([

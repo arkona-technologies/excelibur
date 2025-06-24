@@ -39,10 +39,10 @@ export async function apply_senders_config(
       });
       await session?.interfaces.command.write({
         primary: conf.primary_destination_address
-          ? await find_best_vifc(vm.network_interfaces.ports.row(0))
+          ? await find_best_vifc(vm.network_interfaces.ports.row(0), conf.vlan_id)
           : null,
         secondary: conf.secondary_destination_address
-          ? await find_best_vifc(vm.network_interfaces.ports.row(1))
+          ? await find_best_vifc(vm.network_interfaces.ports.row(1),conf.vlan_id)
           : null,
       });
       await tx.generic.hosting_session.command.write(session);
