@@ -1,6 +1,0 @@
-id,label,stream_type,sync,uhd,channel_capacity,switch_type
-0,Test-rx1,2110-20,TRUE,FALSE,,MakeBeforeBreak
-1,Test-rx2,2110-20,TRUE,FALSE,,MakeBeforeBreak
-2,Test-rx3,2110-20,TRUE,FALSE,,MakeBeforeBreak
-3,Test-rx4,2110-30,TRUE,FALSE,16,MakeBeforeBreak
-4,Test-rx5,2110-30,TRUE,FALSE,16,MakeBeforeBreak

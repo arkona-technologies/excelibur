@@ -1,7 +1,0 @@
-name,id,source_type,source_id,video_format,lut_name,delay_frames,output_type,output_id,flow_type
-test,1,IP-VIDEO,0,3G,,2,IP-VIDEO,0
-test1,2,SDI,0,3G,LUT1,2,IP-VIDEO,1
-test2,3,SDI,0,3G,LUT1,3,IP-VIDEO,2
-test3,2,SDI,2,3G,LUT1,1,IP-VIDEO,1
-sdi-out,2,IP-VIDEO,0,3G,LUT1,1,SDI,0,Video
-test-audio,4,IP-AUDIO,4,3G,,1,SDI,0,Audio
