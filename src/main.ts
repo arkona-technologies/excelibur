@@ -26,7 +26,7 @@ const excel = !!process.env["SHEET"]
 if (excel) {
   const parsed_excel = xlsx.parse(excel);
   for (const sheet of parsed_excel) {
-    console.log(sheet.name);
+    console.log(`Parsing ${sheet.name}: ${sheet.data.length} lines`);
     const as_csv = sheet.data
       .filter((row, _idx, rows) => row.length == rows[0].length)
       .map((row) => row.join(","))

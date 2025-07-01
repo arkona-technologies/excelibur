@@ -41,11 +41,9 @@ export async function find_best_ptp_domain(port: VAPI.AT1130.PTPFlows.Port) {
     await agent.hosting_port.command.write(port);
     return agent as VAPI.AT1130.PTPFlows.AgentAsNamedTableRow;
   });
-  await Promise.all(
-    agents.map((a) =>
-      a.output.ptp_traits.wait_until((tr) => !!tr).catch((_e) => {}),
-    ),
-  );
+  await asyncIter(agents, async (a) => {
+    a.output.ptp_traits.wait_until((tr) => !!tr).catch((_e) => { });
+  });
   type MasterParams = {
     domain: number;
     prio1: number;
@@ -121,24 +119,26 @@ export async function setup_timing(vm: VAPI.AT1130.Root) {
     );
     return agent;
   });
-  const has_responses = await Promise.any(
-    agents.map((agent) =>
-      agent.slave_statistics.num_delayresps_received
-        .wait_until((d) => d > 20, { timeout: new Duration(10, "s") })
-        .then(() => true)
-        .catch(() => false),
-    ),
-  );
-  console.log(
-    `[${vm.raw.identify()}]: switch delay_resp_mode ? ${has_responses}`,
-  );
-  if (!has_responses) {
-    for (const agent of agents) {
-      const current =
-        await agent.slave_settings.delay_req_routing.status.read();
-      await agent.slave_settings.delay_req_routing.command.write(
-        current === "Multicast" ? "Unicast" : "Multicast",
-      );
+  if (agents.length) {
+    const has_responses = await Promise.any(
+      agents.map((agent) =>
+        agent.slave_statistics.num_delayresps_received
+          .wait_until((d) => d > 20, { timeout: new Duration(10, "s") })
+          .then(() => true)
+          .catch(() => false),
+      ),
+    );
+    console.log(
+      `[${vm.raw.identify()}]: switch delay_resp_mode ? ${has_responses}`,
+    );
+    if (!has_responses) {
+      for (const agent of agents) {
+        const current =
+          await agent.slave_settings.delay_req_routing.status.read();
+        await agent.slave_settings.delay_req_routing.command.write(
+          current === "Multicast" ? "Unicast" : "Multicast",
+        );
+      }
     }
   }
   const comb = await vm.time_flows.combinators.create_row();
@@ -176,7 +176,7 @@ export async function base(vm: VAPI.AT1130.Root) {
     ),
   );
   await setup_timing(vm);
-  await setup_sdi_io(vm).catch((_) => {});
+  await setup_sdi_io(vm).catch((_) => { });
   await vm.r_t_p_receiver?.settings.clean_switching_policy.write("Whatever");
   await vm.r_t_p_transmitter?.settings.reserved_bandwidth.write(2);
   await vm.system_clock.t_src.write(vm.p_t_p_clock.output);
@@ -184,7 +184,7 @@ export async function base(vm: VAPI.AT1130.Root) {
   const ltc_clock = await vm.master_clock.ltc_generators.create_row();
   await ltc_clock.t_src.command
     .write(vm.genlock!.instances.row(0).backend.output)
-    .catch((_) => {});
+    .catch((_) => { });
   await ltc_clock.frame_rate.command.write("f25");
   await vm.audio_shuffler?.global_cross_fade.write(new Duration(50, "ms"));
   console.log(`Finished Base Setup @${vm.raw.identify()}`);
