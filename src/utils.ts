@@ -14,13 +14,25 @@ export const unique_by_n =
     });
 
 export function shorten_label(label: string): string {
+  let name = label;
+  if (name.length > 25) {
+    name = name
+      .toLowerCase()
+      .trim()
+      .split(/[^a-zA-Z0-9]/g)
+      .map((word) => word.replace(/[aeiou]/g, "")) // remove vowels
+      .map((word) => {
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      })
+      .join("");
+  }
   // const new_label = label
   //   .toLowerCase()
   //   .trim()
   //   .split(/[^a-zA-Z0-9]/g)
   //   .map((word) => word.replace(/[aeiou]/g, "")) // remove vowels
   //   .map((word) => word);
-  return label.substring(0, 28);
+  return name.substring(0, 26);
 }
 
 export async function find_best_vifc(
