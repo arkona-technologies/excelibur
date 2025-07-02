@@ -42,7 +42,7 @@ export async function find_best_ptp_domain(port: VAPI.AT1130.PTPFlows.Port) {
     return agent as VAPI.AT1130.PTPFlows.AgentAsNamedTableRow;
   });
   await asyncIter(agents, async (a) => {
-    a.output.ptp_traits.wait_until((tr) => !!tr).catch((_e) => { });
+    await a.output.ptp_traits.wait_until((tr) => !!tr).catch((_e) => {});
   });
   type MasterParams = {
     domain: number;
@@ -75,7 +75,6 @@ export async function find_best_ptp_domain(port: VAPI.AT1130.PTPFlows.Port) {
       };
     },
   );
-
   best_masters.sort((a, b) => {
     if (a.prio1 != b.prio1) return a.prio1 < b.prio1 ? -1 : 1;
     const st_a = VAPI.PTP.Enums.SourceType.indexOf(a.tp);
@@ -113,7 +112,6 @@ export async function setup_timing(vm: VAPI.AT1130.Root) {
     await agent.domain.command.write(pars.master.domain);
     await agent.hosting_port.command.write(pars.port);
     await agent.mode.write("SlaveOnly");
-    // await agent.slave_settings.delay_req_routing.command.write("Multicast");
     console.log(
       `Set up ${await agent.row_name()} for Master ${pars.master.name ?? "N/A"} on domain ${pars.master.domain}@${pars.port.raw.kwl}`,
     );
@@ -176,7 +174,7 @@ export async function base(vm: VAPI.AT1130.Root) {
     ),
   );
   await setup_timing(vm);
-  await setup_sdi_io(vm).catch((_) => { });
+  await setup_sdi_io(vm).catch((_) => {});
   await vm.r_t_p_receiver?.settings.clean_switching_policy.write("Whatever");
   await vm.r_t_p_transmitter?.settings.reserved_bandwidth.write(2);
   await vm.system_clock.t_src.write(vm.p_t_p_clock.output);
@@ -184,7 +182,7 @@ export async function base(vm: VAPI.AT1130.Root) {
   const ltc_clock = await vm.master_clock.ltc_generators.create_row();
   await ltc_clock.t_src.command
     .write(vm.genlock!.instances.row(0).backend.output)
-    .catch((_) => { });
+    .catch((_) => {});
   await ltc_clock.frame_rate.command.write("f25");
   await vm.audio_shuffler?.global_cross_fade.write(new Duration(50, "ms"));
   console.log(`Finished Base Setup @${vm.raw.identify()}`);
