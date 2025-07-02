@@ -66,6 +66,7 @@ export const SourceType = z.enum([
   "SDI",
   "SDI2SI",
   "MADI",
+  "VOID"
 ]);
 
 export const ProcessorType = z.enum([

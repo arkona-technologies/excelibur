@@ -239,6 +239,8 @@ async function setup_processing_chain_video(
         return vm.i_o_module?.merger.row(0).output.row(0).video;
       case "PLAYER-VIDEO":
         return vm.re_play?.video.players.row(config.source_id).output.video;
+      case "VOID":
+        return null;
       case "PLAYER-AUDIO":
       case "IP-AUDIO":
       case "MADI":
@@ -249,7 +251,7 @@ async function setup_processing_chain_video(
     }
   };
 
-  let source = enforce_nonnull(find_source()); // type this out...
+  let source = find_source(); // type this out...
   const find_splitter = async (v_src: VAPI.AT1130.Video.Essence) => {
     enforce(!!vm.splitter);
     const splitters = await vm.splitter.instances.rows();
@@ -264,6 +266,7 @@ async function setup_processing_chain_video(
   };
 
   if (config.splitter_phase !== null) {
+    enforce(!!source);
     console.log(
       `[${vm.raw.identify()}] ${config.name}: Using Splitter; ignoring cc3d and delay... (todo)`,
     );
@@ -368,7 +371,7 @@ async function setup_processing_chain_video(
     }
   }
 
-  await set_vsrc(target.command, source);
+  if (source) await set_vsrc(target.command, source);
 }
 async function setup_processing_chain_audio(
   vm: VAPI.AT1130.Root,
@@ -466,6 +469,7 @@ async function setup_processing_chain_audio(
     await set_asrc(target?.command, delay!.outputs.row(0).audio);
     target = delay?.inputs.a_src;
   }
+
   if (
     config.delay_audio &&
     (await vm.system.selected_fpga.read()) === "AUDIO_100GbE" &&
@@ -501,7 +505,9 @@ async function setup_processing_chain_audio(
     .rename(
       `${shorten_label(config.name)}.SHF.${config.output_type.toString()[0]}`,
     )
-    .catch((_) => {});
+    .catch((_) => {
+      console.log("Error renaming shuffler", _);
+    });
   await shuffler.genlock.command.write(vm.genlock!.instances.row(0));
   await shuffler.cross_fade.write(new Duration(30, "ms"));
   await set_asrc(target?.command, shuffler!.output);
@@ -517,6 +523,8 @@ async function setup_processing_chain_audio(
         return vm.i_o_module?.input.row(config.output_id).madi.output;
       case "SDI":
         return vm.i_o_module?.input.row(config.output_id).sdi.output.audio;
+      case "VOID":
+        return null;
       case "SDI2SI":
       case "IP-VIDEO":
       case "PLAYER-VIDEO":
@@ -526,7 +534,8 @@ async function setup_processing_chain_audio(
         );
     }
   };
-  let source = enforce_nonnull(find_source()); // type this out...
+  let source = find_source(); // type this out...
+  if (!!!source) return;
   const shuffler_src = await shuffler.a_src.status.read();
   shuffler_src.fill(null);
   for (const idx of range(0, 80)) {
@@ -541,6 +550,24 @@ async function setup_processing_chain(
   console.log(
     `[${vm.raw.identify()}] Setting up processing chain (${config.flow_type}) "${config.name}" from ${config.source_type}/${config.source_id} to ${config.output_type}/${config.output_id}`,
   );
+  if (config.source_type == "VOID") {
+    if (config.flow_type == "Video" || config.output_type == "IP-VIDEO") {
+      await setup_processing_chain_video(vm, config).catch((e) => {
+        console.log(e);
+      });
+      return;
+    }
+    if (
+      config.flow_type == "Audio" ||
+      config.output_type == "IP-AUDIO" ||
+      config.output_type == "MADI"
+    ) {
+      await setup_processing_chain_audio(vm, config).catch((e) => {
+        console.log(e);
+      });
+      return;
+    }
+  }
   if (
     config.source_type == "IP-VIDEO" ||
     config.source_type == "PLAYER-VIDEO" ||
@@ -549,6 +576,7 @@ async function setup_processing_chain(
     await setup_processing_chain_video(vm, config).catch((e) => {
       console.log(e);
     });
+    return;
   }
   if (
     config.source_type == "IP-AUDIO" ||
@@ -558,6 +586,7 @@ async function setup_processing_chain(
     await setup_processing_chain_audio(vm, config).catch((e) => {
       console.log(e);
     });
+    return;
   }
 }
 export async function setup_processing_chains(
@@ -674,7 +703,6 @@ export async function setup_processing_chains(
   for (const conf of config) {
     await setup_processing_chain(vm, conf);
   }
-  await setup_follower_relations(vm);
 
   console.table(table);
 }
