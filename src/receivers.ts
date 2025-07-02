@@ -9,7 +9,10 @@ export async function apply_receivers_config(
   vm: VAPI.AT1130.Root,
   config: z.infer<typeof ReceiverConfig>[],
 ) {
-  if (config.filter(c=>c.uhd).filter(c=>c.stream_type != '2110-30').length > 8) {
+  if (
+    config.filter((c) => c.uhd).filter((c) => c.stream_type != "2110-30")
+      .length > 8
+  ) {
     await vm.r_t_p_receiver?.settings.buffer_sizes.command.write({
       ...(await vm.r_t_p_receiver.settings.buffer_sizes.status.read()),
       for_2110_20_uhd_singlelink: "UpTo48MB",
@@ -48,8 +51,14 @@ export async function apply_receivers_config(
         name: `${conf.label}`,
       });
       await session?.interfaces.command.write({
-        primary: await find_best_vifc(vm.network_interfaces.ports.row(0),conf.vlan_id),
-        secondary: await find_best_vifc(vm.network_interfaces.ports.row(1),conf.vlan_id),
+        primary: await find_best_vifc(
+          vm.network_interfaces.ports.row(0),
+          conf.vlan_id,
+        ),
+        secondary: await find_best_vifc(
+          vm.network_interfaces.ports.row(1),
+          conf.vlan_id,
+        ),
       });
       await rx.generic.hosting_session.command.write(session);
     }
@@ -129,7 +138,13 @@ export async function apply_receivers_config(
       const maybe_foregin_receiver = vm.r_t_p_receiver?.video_receivers.row(
         conf.id,
       );
-      if (conf.sync && !!maybe_foregin_receiver) {
+      if (
+        conf.sync &&
+        !!maybe_foregin_receiver &&
+        (
+          await vm.r_t_p_receiver?.video_receivers.raw.allocated_indices()
+        )?.includes(conf.id)
+      ) {
         await rx.generic.timing.target.command.write({
           variant: "ForeignReadDelay",
           value: {
