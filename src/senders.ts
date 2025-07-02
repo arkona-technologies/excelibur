@@ -39,10 +39,16 @@ export async function apply_senders_config(
       });
       await session?.interfaces.command.write({
         primary: conf.primary_destination_address
-          ? await find_best_vifc(vm.network_interfaces.ports.row(0), conf.vlan_id)
+          ? await find_best_vifc(
+              vm.network_interfaces.ports.row(0),
+              conf.vlan_id,
+            )
           : null,
         secondary: conf.secondary_destination_address
-          ? await find_best_vifc(vm.network_interfaces.ports.row(1),conf.vlan_id)
+          ? await find_best_vifc(
+              vm.network_interfaces.ports.row(1),
+              conf.vlan_id,
+            )
           : null,
       });
       await tx.generic.hosting_session.command.write(session);
@@ -120,6 +126,13 @@ export async function apply_senders_config(
       }
     }
 
+    if (tx instanceof VAPI.AT1130.RTPTransmitter.AudioStreamerAsNamedTableRow) {
+      await tx.configuration.transport_format.command.write({
+        num_channels: conf.channel_count ? conf.channel_count : 16,
+        format: conf.bit_depth ? conf.bit_depth : "L24",
+        packet_time: conf.p_time ? conf.p_time : "p0_125",
+      });
+    }
     if (tx instanceof VAPI.AT1130.RTPTransmitter.VideoStreamerAsNamedTableRow) {
       if (conf.stream_type != "2110-30" && conf.stream_type != "2110-40")
         await tx.configuration.transport_format.command.write(

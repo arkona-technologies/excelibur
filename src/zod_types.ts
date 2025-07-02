@@ -23,6 +23,12 @@ export const VLAN_ID = z
     const maybe_num = parseInt(id);
     return isNaN(maybe_num) ? null : maybe_num;
   });
+
+export const OutputType = z.enum(["IP-VIDEO", "IP-AUDIO", "SDI", "MADI"]);
+
+export const VideoFormat = z.enum(["12G", "6G", "3G", "1.5G"]);
+export const AudioFormat = z.enum(["p0_125", ...VAPI.Audio.Enums.PacketTime]);
+export const BitFormat = z.enum(["L24", ...VAPI.Audio.Enums.Format]);
 export const SenderConfig = z.object({
   id: z.coerce.number(),
   label: z.string(),
@@ -33,8 +39,10 @@ export const SenderConfig = z.object({
   secondary_destination_port: z.coerce.number().int().nullable(),
   payload_type: z.coerce.number().int(),
   vlan_id: VLAN_ID,
+  channel_count: z.coerce.number().nullable().default(16),
+  p_time: AudioFormat.nullable().default("p0_125"),
+  bit_depth: BitFormat.nullable().default("L16"),
 });
-
 
 export const ReceiverConfig = z.object({
   id: z.coerce.number(),
@@ -59,11 +67,6 @@ export const SourceType = z.enum([
   "SDI2SI",
   "MADI",
 ]);
-
-export const OutputType = z.enum(["IP-VIDEO", "IP-AUDIO", "SDI", "MADI"]);
-
-export const VideoFormat = z.enum(["12G", "6G", "3G", "1.5G"]);
-export const AudioFormat = z.enum(["p0_125", ...VAPI.Audio.Enums.PacketTime]);
 
 export const ProcessorType = z.enum([
   "CC1D",
@@ -94,8 +97,18 @@ export const ProcessingChainConfig = z.object({
   source_id: z.coerce.number().int("source_id needs to be an integer!"),
   lut_name: z.string().nullable().default(null),
   delay_frames: z.coerce.number().int().nullable().default(null),
+  delay_audio: z.coerce.number().int().nullable().default(null),
   splitter_phase: z.coerce.number().int().nullable(),
   output_type: OutputType,
+  channel_count: z
+    .string()
+    .optional()
+    .transform((maybe_str) => {
+      if (!(!!maybe_str)) return 16;
+      const mabye_number = parseInt(maybe_str);
+      if (isNaN(mabye_number)) return 16;
+      return mabye_number;
+    }),
   output_id: z.coerce.number().int("output_id needs to be an integer!"),
 });
 

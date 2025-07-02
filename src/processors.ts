@@ -441,14 +441,21 @@ async function setup_processing_chain_audio(
     .catch((_) => {});
   await set_asrc(target?.command, gain.output);
   target = gain.a_src;
-  if (config.delay_frames) {
+
+  if (
+    config.delay_audio &&
+    ((await vm.system.selected_fpga.read()) !== "AUDIO_100GbE" ||
+      (config.channel_count && config.channel_count > 16))
+  ) {
     const delay = await vm.re_play?.audio.delays.create_row();
-    await gain.rename(`${shorten_label(config.name)}.DLY`).catch((_) => {});
-    await delay?.capabilities.num_channels.command.write(16).catch((_) => {});
+    await delay!.rename(`${shorten_label(config.name)}.DLY`).catch((_) => {});
+    await delay?.capabilities.num_channels.command
+      .write(config.channel_count)
+      .catch((_) => {});
     await delay?.capabilities.capacity.command
       .write({
         variant: "Time",
-        value: { time: new Duration(config.delay_frames * 40, "ms") },
+        value: { time: new Duration(config.delay_audio, "ms") },
       })
       .catch((_) => {});
     await delay?.num_outputs.write(1);
@@ -459,6 +466,34 @@ async function setup_processing_chain_audio(
     await set_asrc(target?.command, delay!.outputs.row(0).audio);
     target = delay?.inputs.a_src;
   }
+  if (
+    config.delay_audio &&
+    (await vm.system.selected_fpga.read()) === "AUDIO_100GbE" &&
+    config.channel_count &&
+    config.channel_count <= 16
+  ) {
+    const delay = await vm.audio_engine!.delay.create_row();
+    await delay!.rename(`${shorten_label(config.name)}.DLY`).catch((_) => {});
+    const input_proxy = await vm.audio_gain?.instances.create_row();
+    await input_proxy!
+      .rename(`${shorten_label(config.name)}.PROXY`)
+      .catch((_) => {});
+    await delay.capabilities.command.write({
+      channels: config.channel_count,
+      only_internal_inputs: false,
+      taps: 1,
+    });
+    const for_delay: VAPI.AudioEngine.DelayParameter[] =
+      new Array<VAPI.AudioEngine.DelayParameter>(16).fill({
+        variant: "Time",
+        value: { time: new Duration(Math.min(config.delay_audio, 2700), "ms") },
+      });
+    await delay.delay.write(for_delay);
+    await delay.set_input(input_proxy!.output);
+    await set_asrc(target?.command, delay!.output);
+    target = input_proxy?.a_src;
+  }
+
   const shuffler = enforce_nonnull(
     await vm.audio_shuffler?.instances.create_row({}),
   );
