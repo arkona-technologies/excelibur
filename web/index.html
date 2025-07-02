@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>CSV Upload with HTMX</title>
+    <title>Config Upload</title>
     <!-- <script src="https://unpkg.com/htmx.org@1.9.2"></script> -->
     <script src="htmx/htmx.org@1.9.12"></script>
     <link rel="stylesheet" href="css/pico.min.css" />
@@ -10,44 +10,24 @@
   <body>
     <header class="container">
       <hgroup>
-        <h1>Upload CSV Files for Configuration</h1>
+        <h1>Upload .XLSX File for Configuration</h1>
         <p>Select relevant .csv files and apply them to this device.</p>
       </hgroup>
     </header>
     <main class="container">
-      <div class="grid">
-        <div>
-          <hgroup>
-            <h3>PTP Settings</h3>
-            <p>using multicast delay-request</p>
-          </hgroup>
-        </div>
-        <div>
-          <form id="ptp" hx-post="/base-setup" hx-swap="innerHTML" hx-target='#domain'>
-            <fieldset role="group">
-              <p >Domain: </p>
-              <p style="width:500px;" id="domain">N/A</p>
-              <div>
-              <button type="submit">Apply</button>
-              <img id="spinner" class="htmx-indicator" src="svg/bars.svg" />
-              </div>
-            </fieldset>
-          </form>
-        </div>
-      </div>
 
       <div class="grid">
         <div>
           <hgroup>
-            <h3>Upload CSV for Processors</h3>
-            <p>Upload Processing Chain config here</p>
+            <h3>Upload XLSX Sheet</h3>
+            <p>Upload Config here</p>
           </hgroup>
         </div>
         <div>
           <form
             id="proc"
             hx-encoding="multipart/form-data"
-            hx-post="/processor-config"
+            hx-post="/excel"
             hx-swap="none"
           >
             <fieldset role="group">
@@ -59,57 +39,7 @@
             </div>
           </form>
         </div>
-      </div>
 
-      <div class="grid">
-        <div>
-          <hgroup>
-            <h3>Upload CSV for Receivers</h3>
-            <p>Set Receiver Switching Modes, Capabilities and Labels</p>
-          </hgroup>
-        </div>
-        <div>
-          <form
-            id="rx"
-            hx-encoding="multipart/form-data"
-            hx-post="/receiver-config"
-            hx-swap="none"
-          >
-            <fieldset role="group">
-              <input type="file" name="file" />
-              <div>
-              <button>Upload</button>
-              <img id="spinner" class="htmx-indicator" src="svg/bars.svg" />
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <div class="grid">
-        <div>
-          <hgroup>
-            <h3>Upload CSV for Senders</h3>
-            <p>Set Sender Capabilities, Labels and addresses</p>
-          </hgroup>
-        </div>
-        <div>
-          <form
-            id="tx"
-            hx-encoding="multipart/form-data"
-            hx-post="/sender-config"
-            hx-swap="none"
-          >
-            <fieldset role="group">
-              <input type="file" name="file" />
-              <div>
-              <button>Upload</button>
-              <img id="spinner" class="htmx-indicator" src="svg/bars.svg" />
-              </div>
-            </fieldset>
-          </form>
-        </div>
-      </div>
     </main>
     <!-- <script> -->
     <!--   htmx.on("#proc", "htmx:xhr:progress", function (evt) { -->
