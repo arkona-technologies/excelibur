@@ -32,6 +32,8 @@ const fastify = Fastify({
   //logger: true,
   bodyLimit: 1e6 /* ? */,
   caseSensitive: false,
+  ignoreDuplicateSlashes:true,
+  ignoreTrailingSlash:true
 });
 
 fastify.addContentTypeParser(
@@ -67,7 +69,9 @@ const vm = (await open_connection(
 )) as VAPI.AT1130.Root;
 fastify.register(fastifyStatic, {
   root: path.resolve("./web"),
+  prefix: '/sheets/'
 });
+
 fastify.register(FastifyMultipart);
 fastify.register(FormBody);
 fastify.register(cors, { origin: "*" });
@@ -139,7 +143,7 @@ fastify.post("/excel", async (req, _res) => {
   return `Done`;
 });
 fastify.listen(
-  { port: parseInt(process.env["PORT"] ?? "4242 "), host: "0.0.0.0" },
+  { port: parseInt(process.env["PORT"] ?? "30000 "), host: "0.0.0.0" },
   (err, addr) => {
     if (err) {
       console.log(err);
