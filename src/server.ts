@@ -32,8 +32,6 @@ const fastify = Fastify({
   //logger: true,
   bodyLimit: 1e6 /* ? */,
   caseSensitive: false,
-  ignoreDuplicateSlashes:true,
-  ignoreTrailingSlash:true
 });
 
 fastify.addContentTypeParser(
@@ -71,6 +69,7 @@ fastify.register(fastifyStatic, {
   root: path.resolve("./web"),
   prefix: '/sheets/'
 });
+
 
 fastify.register(FastifyMultipart);
 fastify.register(FormBody);
