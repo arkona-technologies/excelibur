@@ -42,8 +42,8 @@ export async function find_best_vifc(
   vlan_id ??= 0;
   const vifcs = await port.virtual_interfaces.rows();
   for (const vifc of vifcs) {
-    const actual_id = await vifc.vlan_id.read();
-    if (vlan_id && vlan_id !== actual_id) continue;
+    const actual_id = (await vifc.vlan_id.read()) ?? 0;
+    if (vlan_id != null && vlan_id !== actual_id) continue;
     const addresses = await vifc.ip_addresses.rows();
     for (const masked_addr of addresses) {
       const addr = await masked_addr.ip_address.read();
