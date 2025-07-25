@@ -2,7 +2,7 @@ import { parse_csv } from "./csv.js";
 import * as VAPI from "vapi";
 
 import fs from "fs";
-import {  enforce, enforce_nonnull, } from "vscript";
+import { enforce, enforce_nonnull } from "vscript";
 import { open_connection } from "./connection.js";
 import { base } from "./base.js";
 import {
@@ -28,7 +28,7 @@ if (excel) {
   for (const sheet of parsed_excel) {
     console.log(`Parsing ${sheet.name}: ${sheet.data.length} lines`);
     const as_csv = sheet.data
-      .filter((row, _idx, rows) => row.length == rows[0].length)
+      .filter((row) => row.length > 0)
       .map((row) => row.join(","))
       .join("\n");
     if (sheet.name === "PROC") {
@@ -36,11 +36,9 @@ if (excel) {
     }
     if (sheet.name === "TX") {
       tx_config = parse_csv(as_csv, SenderConfig);
-      console.log(tx_config);
     }
     if (sheet.name === "RX") {
       rx_config = parse_csv(as_csv, ReceiverConfig);
-      console.log(rx_config);
     }
   }
 }
@@ -56,7 +54,7 @@ if (!excel) {
   tx_config = parse_csv(tx, SenderConfig);
   rx_config = parse_csv(rx, ReceiverConfig);
 }
-enforce(!!raw_config && !!tx_config && !!rx_config)
+enforce(!!raw_config && !!tx_config && !!rx_config);
 const processors_config = refine_configs(raw_config);
 const vm = (await open_connection(
   new URL(process.env["URL"] ?? "ws://127.0.0.1"),
