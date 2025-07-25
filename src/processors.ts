@@ -31,7 +31,22 @@ async function prepare_sdi_ins(
   sdi_ins: z.infer<typeof ProcessingChainConfig>[],
   vm: VAPI.AT1130.Root,
 ) {
+  const is_reconfig = await vm.system.io_board.info.type
+    .read()
+    .then(
+      (b) =>
+        b != null &&
+        (b == "IO_MSC_v2" ||
+          b == "IO_MSC_v2_GD32" ||
+          b === "IO_BNC_16bidi" ||
+          b === "IO_BNC_16bidi_GD32"),
+    );
   for (const conf of sdi_ins) {
+    if (is_reconfig) {
+      await vm.i_o_module?.configuration
+        .row(conf.source_id)
+        .direction.write("Input");
+    }
     await vm.i_o_module?.input.row(conf.source_id).mode.command.write("SDI");
   }
 }
