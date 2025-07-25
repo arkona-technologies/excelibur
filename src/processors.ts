@@ -26,6 +26,53 @@ async function prepare_madi_ins(
     });
   }
 }
+async function prepare_madi_outs(
+  madi_outs: z.infer<typeof ProcessingChainConfig>[],
+  vm: VAPI.AT1130.Root,
+) {
+  const is_reconfig = await vm.system.io_board.info.type
+    .read()
+    .then(
+      (b) =>
+        b != null &&
+        (b == "IO_MSC_v2" ||
+          b == "IO_MSC_v2_GD32" ||
+          b === "IO_BNC_16bidi" ||
+          b === "IO_BNC_16bidi_GD32"),
+    );
+  for (const conf of madi_outs) {
+    if (is_reconfig) {
+      await vm.i_o_module?.configuration
+        .row(conf.source_id)
+        .direction.write("Output");
+    }
+    await vm.i_o_module?.output.row(conf.output_id).mode.command.write("MADI");
+  }
+}
+
+async function prepare_sdi_outs(
+  sdi_outs: z.infer<typeof ProcessingChainConfig>[],
+  vm: VAPI.AT1130.Root,
+) {
+  const is_reconfig = await vm.system.io_board.info.type
+    .read()
+    .then(
+      (b) =>
+        b != null &&
+        (b == "IO_MSC_v2" ||
+          b == "IO_MSC_v2_GD32" ||
+          b === "IO_BNC_16bidi" ||
+          b === "IO_BNC_16bidi_GD32"),
+    );
+  for (const conf of sdi_outs) {
+    if (is_reconfig) {
+      await vm.i_o_module?.configuration
+        .row(conf.source_id)
+        .direction.write("Output");
+    }
+    await vm.i_o_module?.output.row(conf.output_id).mode.command.write("SDI");
+  }
+}
 
 async function prepare_sdi_ins(
   sdi_ins: z.infer<typeof ProcessingChainConfig>[],
@@ -618,9 +665,15 @@ export async function setup_processing_chains(
   const sdi_ins = config
     .filter((c) => c.source_type === "SDI")
     .filter(unique_by("source_id"));
+  const sdi_outs = config
+    .filter((c) => c.output_type === "SDI")
+    .filter(unique_by("output_id"));
   const madi_ins = config
     .filter((c) => c.source_type === "MADI")
     .filter(unique_by("source_id"));
+  const madi_outs = config
+    .filter((c) => c.output_type === "MADI")
+    .filter(unique_by("output_id"));
   const video_players = config
     .filter((c) => c.source_type === "PLAYER-VIDEO")
     .filter(unique_by("source_id"));
@@ -640,6 +693,8 @@ export async function setup_processing_chains(
   await prepare_video_players(video_players, vm);
   await prepare_audio_players(audio_players, vm);
   await prepare_sdi_ins(sdi_ins, vm);
+  await prepare_sdi_outs(sdi_outs, vm);
+  await prepare_madi_outs(madi_outs, vm);
   await prepare_madi_ins(madi_ins, vm);
   await prepare_video_tx(rtp_video_outs, vm);
   await prepare_audio_tx(rtp_audio_outs, vm);
