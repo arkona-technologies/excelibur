@@ -107,6 +107,41 @@ fastify.post("/processor-config", async (req, _res) => {
   return `Done`;
 });
 
+fastify.post("/user_scripts/excel", async (req, _res) => {
+  const maybe_excel = enforce_nonnull(await req.file().then(f=>f?.toBuffer()));
+  enforce(!!maybe_excel);
+
+  let raw_config;
+  let tx_config;
+  let rx_config;
+  const parsed_excel = xlsx.parse(maybe_excel);
+  for (const sheet of parsed_excel) {
+    console.log(`Parsing ${sheet.name}: ${sheet.data.length} lines`);
+    const as_csv = sheet.data
+      .filter((row, _idx, rows) => row.length == rows[0].length)
+      .map((row) => row.join(","))
+      .join("\n");
+    if (sheet.name === "PROC") {
+      raw_config = parse_csv(as_csv, ProcessingChainConfig);
+    }
+    if (sheet.name === "TX") {
+      tx_config = parse_csv(as_csv, SenderConfig);
+      console.log(tx_config);
+    }
+    if (sheet.name === "RX") {
+      rx_config = parse_csv(as_csv, ReceiverConfig);
+      console.log(rx_config);
+    }
+  }
+  enforce(!!raw_config && !!tx_config && !!rx_config);
+  const processors_config = refine_config(raw_config);
+  await base(vm);
+  await setup_processing_chains(vm, processors_config);
+  await apply_senders_config(vm, tx_config);
+  await apply_receivers_config(vm, rx_config);
+  return `Done`;
+});
+
 fastify.post("/excel", async (req, _res) => {
   const maybe_excel = enforce_nonnull(await req.file().then(f=>f?.toBuffer()));
   enforce(!!maybe_excel);
