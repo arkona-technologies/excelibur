@@ -1,8 +1,3 @@
-
-<p align="center">
-  <img width="180" height="320" alt="image" src="https://github.com/user-attachments/assets/caa1d8a4-d40c-4538-a8b0-a0f9ff42dc53" />
-</p>
-
 # Excelibur
 
 **Excelibur** is a tool that converts Excel-based configuration sheets into machine-readable configuration data for **Arkona Technologies AT300 Processing Cards**.
@@ -54,3 +49,6 @@ npx tsc && URL=ws://172.16.210.107 SHEET=./MY-AT300.xlsx node build/main.js
 * Timing and synchronization (e.g., PTP) must be configured separately by the user.
 
 
+<p align="center">
+  <img width="180" height="320" alt="image" src="https://github.com/user-attachments/assets/caa1d8a4-d40c-4538-a8b0-a0f9ff42dc53" />
+</p>
