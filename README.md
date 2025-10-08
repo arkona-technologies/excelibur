@@ -5,7 +5,7 @@
 It provides a convenient way to define and deploy AT300 configurations through familiar spreadsheet workflows.
 
 
-## 🧩 Overview
+## Overview
 
 Excelibur reads structured Excel workbooks (based on the provided `AT300-XLSX-TEMPLATE.xlsx`) and translates their content into configuration commands that can be sent to an AT300 device.
 These configurations typically include:
@@ -15,10 +15,10 @@ These configurations typically include:
 * Processing block parameters
 * Network I/O and stream mappings
 
-**Important:** Excelibur does *not* manage or configure timing parameters such as **PTP** (Precision Time Protocol) or related synchronization settings. These must be set up separately by the end user on the device or network.
+**Important:** Excelibur does *not* manage or configure timing parameters such as **PTP** or related synchronization settings. These must be set up separately by the end user.
 
 
-## 🚀 Usage
+## Usage
 
 ### 1. Prerequisites
 
@@ -42,16 +42,7 @@ npx tsc && URL=ws://172.16.210.107 SHEET=./MY-AT300.xlsx node build/main.js
 | `SHEET`  | Path to the Excel configuration file (`.xlsx`)                      |
 
 
-### 3. Example Workflow
-
-1. Fill out the configuration in Excel using the provided `AT300-XLSX-TEMPLATE.xlsx`.
-2. Save your customized file (e.g., `MY-AT300.xlsx`).
-3. Run Excelibur with the command above.
-4. Excelibur reads the Excel file, validates the data, and transmits configuration commands to the specified AT300 device.
-5. The AT300 applies and confirms the configuration in real time.
-
-
-## 🧠 Notes
+## Note
 
 * The `.xlsx` file must follow the structure of the `AT300-XLSX-TEMPLATE`, including sheet names, headers, and data formats.
 * Incorrect or missing fields will trigger validation warnings or errors during execution.
@@ -59,6 +50,6 @@ npx tsc && URL=ws://172.16.210.107 SHEET=./MY-AT300.xlsx node build/main.js
 * Timing and synchronization (e.g., PTP) must be configured separately by the user.
 
 
-## 📄 License
+## License
 
 TODO
