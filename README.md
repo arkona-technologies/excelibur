@@ -1,55 +1,55 @@
-# CSV Configurator
 
-Configures Processing Chains, Transmitters and Receivers based on .csv files.
+# Excelibur
+
+**Excelibur** is a tool that converts Excel-based configuration sheets into machine-readable configuration data for **Arkona Technologies AT300 Processing Cards**.
+It provides a convenient way to define and deploy AT300 configurations through familiar spreadsheet workflows.
+
+
+## Overview
+
+Excelibur reads structured Excel workbooks (based on the provided `AT300-XLSX-TEMPLATE.xlsx`) and translates their content into configuration commands that can be sent to an AT300 device.
+These configurations typically include:
+
+* Channel and core allocations
+* Signal routing definitions
+* Processing block parameters
+* Network I/O and stream mappings
+
+**Important:** Excelibur does *not* manage or configure timing parameters such as **PTP** or related synchronization settings. These must be set up separately by the end user.
+
 
 ## Usage
 
-There are 2 ways to use this right now.
+### 1. Prerequisites
 
-### CLI 
-
-using it via cli like so `npx tsc && URL=ws://172.16.163.2 PROC=./test/cb-with-splitter.csv TX=./test/tx.csv RX=./test/rx.csv node build/main.js`
-
-### With .xlsx file
-using it via cli like so `npx tsc && URL=ws://172.16.163.2 SHEET=/path/to/config.xlsx  node build/main.js`
-
-### Web UI
-
-Using the minimal web-ui/webserver found under `src/server.ts` that uses the html/css from `./web`. 
-Use the build script via `npm run vscriptd` to build a vscriptd uploadable version. 
-Make sure the default Port (4242) is configured for forwarding (modify `/config/forward_tcp_port_list`)
+* **Node.js** (version ≥ 18)
+* **TypeScript**
+* **npx** (bundled with npm)
+* A valid `.xlsx` configuration file that follows the `AT300-XLSX-TEMPLATE` structure
 
 
-## Schemas
+### 2. Build and Run
 
-see `src/zod_types.ts` for definitions
+```bash
+npx tsc && URL=ws://172.16.210.107 SHEET=./MY-AT300.xlsx node build/main.js
+```
 
-### Processors
+**Parameters:**
 
-Processor use the following schema denoted by the first line of the csv:
-
-`source_id,source_type,name,lut_name,delay_frames,video_format,splitter_phase,output_id,output_type,flow_type`
-
-sources and sinks are identified via their type and source_id/output_id.
-
-I.e.: source_id = 0 and source_type = 'IP-VIDEO' would be rtp-video-receiver #0
-
-flow_type defaults to Video if left unspecified
-
-### Receivers
-
-Receivers use the following schema denoted by the first line of the csv:
-
-`id,label,stream_type,sync,uhd,channel_capacity,switch_type`
-
-id refers to the row number of the respective receiver!
+| Variable | Description                                                         |
+| -------- | ------------------------------------------------------------------- |
+| `URL`    | WebSocket endpoint for the AT300 card (e.g., `ws://172.16.210.107`) |
+| `SHEET`  | Path to the Excel configuration file (`.xlsx`)                      |
 
 
-### Transmitters
+## Note
 
-Transmitters use the following schema denoted by the first line of the csv:
+* The `.xlsx` file must follow the structure of the `AT300-XLSX-TEMPLATE`, including sheet names, headers, and data formats.
+* Incorrect or missing fields will trigger validation warnings or errors during execution.
+* Excelibur communicates via WebSocket — ensure the AT300 is reachable and configured to accept connections.
+* Timing and synchronization (e.g., PTP) must be configured separately by the user.
 
-`id,label,name,stream_type,primary_destination_address,primary_destination_port,secondary_destination_address,secondary_destination_port,payload_type`
 
-id refers to the row number of the respective transmitter!
+## License
 
+TODO

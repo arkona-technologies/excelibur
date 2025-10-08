@@ -382,7 +382,7 @@ async function setup_processing_chain_video(
     }
   }
 
-  if (config.delay_frames) {
+  if (config.delay_frames != null) {
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding Delay...`);
     try {
       const delay = await vm.re_play?.video.delays.create_row();
@@ -548,6 +548,8 @@ async function setup_processing_chain_audio(
       channels: config.channel_count,
       only_internal_inputs: false,
       taps: 1,
+      control: 'INDIVIDUAL_CHANNELS',
+      mode: 'Basic',
     });
     const for_delay: VAPI.AudioEngine.DelayParameter[] =
       new Array<VAPI.AudioEngine.DelayParameter>(16).fill({
