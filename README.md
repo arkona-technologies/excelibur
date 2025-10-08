@@ -29,6 +29,22 @@ These configurations typically include:
 
 ### 2. Build and Run
 
+Update the bladerunner sdk dependencies to point at a local AT300 running the appropriate release.
+
+```json
+  "dependencies": {
+    "vapi": "http://CHANGE-THIS-TO-YOUR-AT300/vapi.tar.gz",
+    "vscript": "http://CHANGE-THIS-TO-YOUR-AT300/vscript.tar.gz",
+    "vutil": "http://CHANGE-THIS-TO-YOUR-AT300/vutil.tar.gz",
+  }
+  ```
+Install dependencies via your preferred package manager
+
+```bash
+npm install --legacy-peer-deps 
+```
+Transpile and run via node
+
 ```bash
 npx tsc && URL=ws://172.16.210.107 SHEET=./MY-AT300.xlsx node build/main.js
 ```
