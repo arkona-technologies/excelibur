@@ -50,6 +50,4 @@ npx tsc && URL=ws://172.16.210.107 SHEET=./MY-AT300.xlsx node build/main.js
 * Timing and synchronization (e.g., PTP) must be configured separately by the user.
 
 
-## License
-
-TODO
+![Excelibur](execlibur.png)
