@@ -139,10 +139,15 @@ export async function apply_senders_config(
           get_transport_format(),
         );
       if (conf.stream_type === "2110-40") {
+        const old = await tx.configuration.transport_format.status.read();
+        enforce(
+          old.variant != "ST2022_6",
+          "ST2022_6 can not have associated -40 streams!",
+        );
         await tx.configuration.transport_format.command.write({
-          ...(await tx.configuration.transport_format.status.read()),
-          value: { add_st2110_40: true },
-        } as any);
+          variant: old.variant,
+          value: { ...old.value, add_st2110_40: true } as any,
+        });
       }
     }
   }
