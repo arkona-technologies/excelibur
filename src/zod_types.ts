@@ -66,7 +66,7 @@ export const SourceType = z.enum([
   "SDI",
   "SDI2SI",
   "MADI",
-  "VOID"
+  "VOID",
 ]);
 
 export const ProcessorType = z.enum([
@@ -98,6 +98,9 @@ export const ProcessingChainConfig = z.object({
   source_id: z.coerce.number().int("source_id needs to be an integer!"),
   lut_name: z.string().nullable().default(null),
   delay_frames: z.coerce.number().int().nullable().default(null),
+  samplerate_converter: z.string().transform((bool_str) => {
+    return bool_str.toLowerCase().trim() == "true";
+  }),
   delay_audio: z.coerce.number().int().nullable().default(null),
   splitter_phase: z.coerce.number().int().nullable(),
   output_type: OutputType,
@@ -105,7 +108,7 @@ export const ProcessingChainConfig = z.object({
     .string()
     .optional()
     .transform((maybe_str) => {
-      if (!(!!maybe_str)) return 16;
+      if (!!!maybe_str) return 16;
       const mabye_number = parseInt(maybe_str);
       if (isNaN(mabye_number)) return 16;
       return mabye_number;
@@ -114,7 +117,7 @@ export const ProcessingChainConfig = z.object({
 });
 
 export function refine_config(
-  configs: z.infer<typeof ProcessingChainConfig>[],
+  configs: z.infer<typeof ProcessingChainConfig>[]
 ): z.infer<typeof ProcessingChainConfig>[] {
   for (const conf of configs) {
     if (conf.name === "") {

@@ -141,7 +141,9 @@ async function prepare_video_players(
       },
     });
     console.log(
-      `${player?.raw.kwl} has capabilities: ${JSON.stringify(await player?.capabilities.status.read())}`,
+      `${player?.raw.kwl} has capabilities: ${JSON.stringify(
+        await player?.capabilities.status.read(),
+      )}`,
     );
     await player?.rename(shorten_label(conf.name));
   }
@@ -318,7 +320,9 @@ async function setup_processing_chain_video(
     enforce(!!vm.splitter);
     const splitters = await vm.splitter.instances.rows();
     console.log(
-      `[${vm.raw.identify()}] Searching for Splitter with v_src == ${v_src.raw.kwl}`,
+      `[${vm.raw.identify()}] Searching for Splitter with v_src == ${
+        v_src.raw.kwl
+      }`,
     );
     for (const splitter of splitters) {
       const v_src_split = await splitter.v_src.status.read();
@@ -330,7 +334,9 @@ async function setup_processing_chain_video(
   if (config.splitter_phase !== null) {
     enforce(!!source);
     console.log(
-      `[${vm.raw.identify()}] ${config.name}: Using Splitter; ignoring cc3d and delay... (todo)`,
+      `[${vm.raw.identify()}] ${
+        config.name
+      }: Using Splitter; ignoring cc3d and delay... (todo)`,
     );
     let maybe_splitter = await find_splitter(source);
     console.log(
@@ -343,7 +349,9 @@ async function setup_processing_chain_video(
       await maybe_splitter.v_src.command.write(source);
     }
     console.log(
-      `[${vm.raw.identify()}] ${config.name}: Splitter in use: ${maybe_splitter?.raw.kwl}`,
+      `[${vm.raw.identify()}] ${config.name}: Splitter in use: ${
+        maybe_splitter?.raw.kwl
+      }`,
     );
     await set_vsrc(
       target.command,
@@ -548,8 +556,8 @@ async function setup_processing_chain_audio(
       channels: config.channel_count,
       only_internal_inputs: false,
       taps: 1,
-      control: 'INDIVIDUAL_CHANNELS',
-      mode: 'Basic',
+      control: "INDIVIDUAL_CHANNELS",
+      mode: "Basic",
     });
     const for_delay: VAPI.AudioEngine.DelayParameter[] =
       new Array<VAPI.AudioEngine.DelayParameter>(16).fill({
@@ -600,6 +608,25 @@ async function setup_processing_chain_audio(
   };
   let source = find_source(); // type this out...
   if (!!!source) return;
+  const multiple_of_16 = (num: number) => {
+    return (num + 15) & ~15;
+  };
+  if (config.samplerate_converter === true && config.channel_count != 0) {
+    console.log(`[${vm.raw.identify()}] Setting up SRC`);
+    const src = await vm.sample_rate_converter?.instances.create_row();
+    await src!.rename(`${shorten_label(config.name)}.SRC`).catch((_) => {});
+    await src?.settings.channel_capacity.command.write(
+      multiple_of_16(config.channel_count),
+    );
+    await src?.settings.t_src.command.write(
+      vm.genlock!.instances.row(0).backend.output,
+    );
+    await src?.a_src.command.write(source);
+    await src?.active.command.write(true);
+
+    source = src!.output;
+  }
+
   const shuffler_src = await shuffler.a_src.status.read();
   shuffler_src.fill(null);
   for (const idx of range(0, 80)) {
@@ -612,7 +639,11 @@ async function setup_processing_chain(
   config: z.infer<typeof ProcessingChainConfig>,
 ) {
   console.log(
-    `[${vm.raw.identify()}] Setting up processing chain (${config.flow_type}) "${config.name}" from ${config.source_type}/${config.source_id} to ${config.output_type}/${config.output_id}`,
+    `[${vm.raw.identify()}] Setting up processing chain (${
+      config.flow_type
+    }) "${config.name}" from ${config.source_type}/${config.source_id} to ${
+      config.output_type
+    }/${config.output_id}`,
   );
   if (config.source_type == "VOID") {
     if (config.flow_type == "Video" || config.output_type == "IP-VIDEO") {
@@ -702,6 +733,7 @@ export async function setup_processing_chains(
   await prepare_audio_tx(rtp_audio_outs, vm);
 
   const num_cc3d = config.filter((c) => c.lut_name).length;
+  const num_src = config.filter((c) => c.samplerate_converter).length;
   const num_vdel = config
     .filter((c) => c.flow_type === "Video")
     .filter((c) => c.output_type === "SDI" || c.output_type === "IP-VIDEO")
@@ -743,6 +775,11 @@ export async function setup_processing_chains(
     name: "Audio-Delay",
     allocated: num_adel,
     max: 256,
+  });
+  table.push({
+    name: "SRC",
+    allocated: num_src,
+    max: 72,
   });
   table.push({
     name: "Video-IP-TX",
