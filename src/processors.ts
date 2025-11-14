@@ -67,7 +67,7 @@ async function prepare_sdi_outs(
   for (const conf of sdi_outs) {
     if (is_reconfig) {
       await vm.i_o_module?.configuration
-        .row(conf.source_id)
+        .row(conf.output_id)
         .direction.write("Output");
     }
     await vm.i_o_module?.output.row(conf.output_id).mode.command.write("SDI");
