@@ -370,7 +370,7 @@ async function setup_processing_chain_video(
       );
       const fallback_lut = "3-NBCU_HLG2SDR_DL_v1";
       try {
-        const has_lut = await fetch(`$http://{vm.raw.ip}/cube`)
+        const has_lut = await fetch(`http://${vm.raw.ip}/cube`)
           .then((r) => r.json())
           .then((j: any[]) => j.some((l) => l.name === config.lut_name))
           .catch((_) => false);
