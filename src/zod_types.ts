@@ -15,6 +15,17 @@ export const SwitchType = z
   .enum(["Patch", "MakeBeforeBreak", "BreakBeforeMake"])
   .default("Patch");
 
+export const ChannelCount = z
+  .string()
+  .optional()
+  .transform((maybe_str) => {
+    if (!!!maybe_str) return 16;
+    const mabye_number = parseInt(maybe_str);
+    if (isNaN(mabye_number)) return 16;
+    return mabye_number;
+  });
+
+
 export const VLAN_ID = z
   .string()
   .optional()
@@ -39,7 +50,7 @@ export const SenderConfig = z.object({
   secondary_destination_port: z.coerce.number().int().nullable(),
   payload_type: z.coerce.number().int(),
   vlan_id: VLAN_ID,
-  channel_count: z.coerce.number().nullable().default(16),
+  channel_count: ChannelCount,
   p_time: AudioFormat.nullable().default("p0_125"),
   bit_depth: BitFormat.nullable().default("L16"),
 });
@@ -84,7 +95,6 @@ const random_name = () => {
   }
   return str;
 };
-
 export const ProcessingChainConfig = z.object({
   name: z
     .string()
@@ -98,26 +108,18 @@ export const ProcessingChainConfig = z.object({
   source_id: z.coerce.number().int("source_id needs to be an integer!"),
   lut_name: z.string().nullable().default(null),
   delay_frames: z.coerce.number().int().nullable().default(null),
-  samplerate_converter: z.string().transform((bool_str) => {
-    return bool_str.toLowerCase().trim() == "true";
+  samplerate_converter: z.string().optional().transform((bool_str) => {
+    return bool_str?.toLowerCase().trim() == "true";
   }),
   delay_audio: z.coerce.number().int().nullable().default(null),
   splitter_phase: z.coerce.number().int().nullable(),
   output_type: OutputType,
-  channel_count: z
-    .string()
-    .optional()
-    .transform((maybe_str) => {
-      if (!!!maybe_str) return 16;
-      const mabye_number = parseInt(maybe_str);
-      if (isNaN(mabye_number)) return 16;
-      return mabye_number;
-    }),
+  channel_count: ChannelCount,
   output_id: z.coerce.number().int("output_id needs to be an integer!"),
 });
 
 export function refine_config(
-  configs: z.infer<typeof ProcessingChainConfig>[]
+  configs: z.infer<typeof ProcessingChainConfig>[],
 ): z.infer<typeof ProcessingChainConfig>[] {
   for (const conf of configs) {
     if (conf.name === "") {

@@ -32,14 +32,17 @@ export function parse_csv<T extends z.ZodRawShape>(
     .filter((row_split) => !is_schema(row_split, schema))
     .map((r) => r.map((c) => (c == "" ? null : c)));
   console.log("CSV Parser: ", rows.length, "matching lines");
+  console.log(rows);
   const parsed = rows
     .map((row) => {
       try {
+        console.log("row: ",row);
         let obj: any = {};
         Object.keys(schema.shape).forEach((k) => {
           const idx = parameter_mapping[k];
           obj[k] = row[idx];
         });
+        console.log(obj);
         return schema.parse(obj);
       } catch (_e) {
         console.log(_e);
@@ -47,5 +50,6 @@ export function parse_csv<T extends z.ZodRawShape>(
       }
     })
     .filter((nullable) => !!nullable);
+    console.log(parsed);
   return parsed;
 }
