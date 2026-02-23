@@ -113,7 +113,7 @@ export async function setup_timing(vm: VAPI.AT1130.Root) {
     await agent.hosting_port.command.write(pars.port);
     await agent.mode.write("SlaveOnly");
     console.log(
-      `Set up ${await agent.row_name()} for Master ${pars.master.name ?? "N/A"} on domain ${pars.master.domain}@${pars.port.raw.kwl}`,
+      `Set up ${await agent.row_name.status.read()} for Master ${pars.master.name ?? "N/A"} on domain ${pars.master.domain}@${pars.port.raw.kwl}`,
     );
     return agent;
   });

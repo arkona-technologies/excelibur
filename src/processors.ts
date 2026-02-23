@@ -113,7 +113,7 @@ async function prepare_audio_players(
         value: { time: new Duration(5, "s") },
       });
     }
-    await player?.rename(shorten_label(conf.name));
+    await player?.row_name.command.write(shorten_label(conf.name));
   }
 }
 
@@ -145,7 +145,7 @@ async function prepare_video_players(
         await player?.capabilities.status.read(),
       )}`,
     );
-    await player?.rename(shorten_label(conf.name));
+    await player?.row_name.command.write(shorten_label(conf.name));
   }
 }
 async function prepare_video_tx(
@@ -180,7 +180,7 @@ async function prepare_video_tx(
       console.log(e);
       await tx.constraints.max_bandwidth.command.write("b1_5Gb");
     }
-    // await tx.rename(conf.name.substring(0, 32));
+    // await tx.row_name.command.write(conf.name.substring(0, 32));
     if (maybe_session) {
       vm.raw.write_unchecked(
         { kwl: maybe_session.raw.kwl, kw: "active_command" },
@@ -198,7 +198,7 @@ async function prepare_audio_tx(
       allow_reuse_row: true,
       index: conf.output_id,
     });
-    // await tx.rename(shorten_label(conf.name));
+    // await tx.row_name.command.write(shorten_label(conf.name));
   }
 }
 
@@ -232,7 +232,7 @@ async function prepare_video_rx(
         supports_uhd_sample_interleaved: false,
       })
       .catch((e) => console.log(e));
-    // await rx.rename(shorten_label(conf.name));
+    // await rx.row_name.command.write(shorten_label(conf.name));
   }
 }
 
@@ -255,7 +255,7 @@ async function prepare_audio_rx(
         supports_clean_switching: true,
       })
       .catch((e) => console.log(e));
-    // await rx.rename(shorten_label(conf.name));
+    // await rx.row_name.command.write(shorten_label(conf.name));
   }
 }
 
@@ -300,7 +300,7 @@ async function setup_processing_chain_video(
       case "SDI":
         return vm.i_o_module?.input.row(config.source_id).sdi.output.video;
       case "SDI2SI":
-        return vm.i_o_module?.merger.row(0).output.row(0).video;
+        return vm.i_o_module?.merger.row(0).output;
       case "PLAYER-VIDEO":
         return vm.re_play?.video.players.row(config.source_id).output.video;
       case "VOID":
@@ -355,7 +355,7 @@ async function setup_processing_chain_video(
     );
     await set_vsrc(
       target.command,
-      maybe_splitter.outputs.row(config.splitter_phase % 4).output,
+      maybe_splitter.outputs.row(config.splitter_phase % 4),
     );
     return;
   }
@@ -364,7 +364,9 @@ async function setup_processing_chain_video(
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding CC3D...`);
     try {
       const cc3d = await vm.color_correction?.cc3d.create_row({});
-      await cc3d?.rename(`${shorten_label(config.name)}.CC3D`).catch((_) => {});
+      await cc3d?.row_name.command
+        .write(`${shorten_label(config.name)}.CC3D`)
+        .catch((_) => {});
       await cc3d?.reserve_uhd_resources.command.write(
         config.video_format == "12G" || config.video_format == "6G",
       );
@@ -394,7 +396,9 @@ async function setup_processing_chain_video(
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding Delay...`);
     try {
       const delay = await vm.re_play?.video.delays.create_row();
-      await delay?.rename(`${shorten_label(config.name)}.DLY`).catch((_) => {});
+      await delay?.row_name.command
+        .write(`${shorten_label(config.name)}.DLY`)
+        .catch((_) => {});
       await delay?.capabilities.command.write({
         delay_mode:
           config.delay_frames < 2 ? "FramePhaser" : "FrameSync_Freeze",
@@ -507,8 +511,8 @@ async function setup_processing_chain_audio(
   await prepare_target();
   enforce(!!target, "Target is not present");
   const gain = await vm.audio_gain!.instances.create_row();
-  await gain
-    .rename(
+  await gain.row_name.command
+    .write(
       `${shorten_label(config.name)}.LVL.${config.output_type.toString()[0]}`,
     )
     .catch((_) => {});
@@ -521,7 +525,9 @@ async function setup_processing_chain_audio(
       (config.channel_count && config.channel_count > 16))
   ) {
     const delay = await vm.re_play?.audio.delays.create_row();
-    await delay!.rename(`${shorten_label(config.name)}.DLY`).catch((_) => {});
+    await delay!.row_name.command
+      .write(`${shorten_label(config.name)}.DLY`)
+      .catch((_) => {});
     await delay?.capabilities.num_channels.command
       .write(config.channel_count)
       .catch((_) => {});
@@ -547,10 +553,12 @@ async function setup_processing_chain_audio(
     config.channel_count <= 16
   ) {
     const delay = await vm.audio_engine!.delay.create_row();
-    await delay!.rename(`${shorten_label(config.name)}.DLY`).catch((_) => {});
+    await delay!.row_name.command
+      .write(`${shorten_label(config.name)}.DLY`)
+      .catch((_) => {});
     const input_proxy = await vm.audio_gain?.instances.create_row();
-    await input_proxy!
-      .rename(`${shorten_label(config.name)}.PROXY`)
+    await input_proxy!.row_name.command
+      .write(`${shorten_label(config.name)}.PROXY`)
       .catch((_) => {});
     await delay.capabilities.command.write({
       channels: config.channel_count,
@@ -573,8 +581,8 @@ async function setup_processing_chain_audio(
   const shuffler = enforce_nonnull(
     await vm.audio_shuffler?.instances.create_row({}),
   );
-  await shuffler
-    .rename(
+  await shuffler.row_name.command
+    .write(
       `${shorten_label(config.name)}.SHF.${config.output_type.toString()[0]}`,
     )
     .catch((_) => {
@@ -614,7 +622,9 @@ async function setup_processing_chain_audio(
   if (config.samplerate_converter === true && config.channel_count != 0) {
     console.log(`[${vm.raw.identify()}] Setting up SRC`);
     const src = await vm.sample_rate_converter?.instances.create_row();
-    await src!.rename(`${shorten_label(config.name)}.SRC`).catch((_) => {});
+    await src!.row_name.command
+      .write(`${shorten_label(config.name)}.SRC`)
+      .catch((_) => {});
     await src?.settings.channel_capacity.command.write(
       multiple_of_16(config.channel_count),
     );
@@ -821,10 +831,10 @@ async function setup_follower_relations(vm: VAPI.AT1130.Root) {
   const players_video = (await vm.re_play?.video.players.rows()) ?? [];
 
   for (const player of players_audio) {
-    const name = await player.row_name();
+    const name = await player.row_name.status.read();
     const maybe_leader =
       (await asyncFind(players_video, async (pv) => {
-        const name_leader = await pv.row_name();
+        const name_leader = await pv.row_name.status.read();
         return name === name_leader;
       })) ?? null;
     if (maybe_leader) {

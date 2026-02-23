@@ -54,7 +54,7 @@ export async function apply_senders_config(
       await tx.generic.hosting_session.command.write(session);
     }
     enforce(!!session);
-    await tx.rename(conf.label);
+    await tx.row_name.command.write(conf.label);
     await session.active.command.write(false);
     const get_ip_config = () => {
       switch (conf.stream_type) {

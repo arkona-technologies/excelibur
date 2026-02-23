@@ -41,7 +41,7 @@ export async function apply_receivers_config(
       }
     };
     const rx = enforce_nonnull(await get_receiver());
-    await rx.rename(conf.label).catch((_) => {
+    await rx.row_name.command.write(conf.label).catch((_) => {
       console.log(`Renaming RX ${rx.index} failed`);
     });
     await rx.generic.initiate_readout_on.command.write("FirstStreamPresent");
@@ -117,7 +117,7 @@ export async function apply_receivers_config(
       if (conf.sync) {
         await rx.generic.timing.target.command.write({
           variant: "TimeSource",
-          value: { t_src: vm.p_t_p_clock.output, use_rtp_timestamp: false },
+          value: { t_src: vm.p_t_p_clock.output, alignment: "FrameStart" },
         });
       } else {
         await rx.generic.timing.target.command.write({
@@ -150,7 +150,6 @@ export async function apply_receivers_config(
           value: {
             foreign_receiver: maybe_foregin_receiver.generic,
             extra_delay: new Duration(0, "ms"),
-            on_backpressure: "Yield",
           },
         });
       } else {
