@@ -300,7 +300,7 @@ async function setup_processing_chain_video(
       case "SDI":
         return vm.i_o_module?.input.row(config.source_id).sdi.output.video;
       case "SDI2SI":
-        return vm.i_o_module?.merger.row(0).output;
+        return vm.i_o_module?.merger.row(0).output.row(0).video;
       case "PLAYER-VIDEO":
         return vm.re_play?.video.players.row(config.source_id).output.video;
       case "VOID":
@@ -355,7 +355,7 @@ async function setup_processing_chain_video(
     );
     await set_vsrc(
       target.command,
-      maybe_splitter.outputs.row(config.splitter_phase % 4),
+      maybe_splitter.outputs.row(config.splitter_phase % 4).output,
     );
     return;
   }
