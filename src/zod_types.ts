@@ -98,9 +98,13 @@ export const ProcessingChainConfig = z.object({
   source_id: z.coerce.number().int("source_id needs to be an integer!"),
   lut_name: z.string().nullable().default(null),
   delay_frames: z.coerce.number().int().nullable().default(null),
-  samplerate_converter: z.string().transform((bool_str) => {
-    return bool_str.toLowerCase().trim() == "true";
-  }),
+  samplerate_converter: z
+    .string()
+    .optional()
+    .transform((bool_str) => {
+      if (!bool_str) return false;
+      return bool_str.toLowerCase().trim() === "true";
+    }),
   delay_audio: z.coerce.number().int().nullable().default(null),
   splitter_phase: z.coerce.number().int().nullable(),
   output_type: OutputType,
