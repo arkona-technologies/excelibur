@@ -43,6 +43,15 @@ Install dependencies via your preferred package manager
 ```bash
 npm install --legacy-peer-deps 
 ```
+
+Or use the setup script, which performs a clean install with legacy peer dependency resolution and then runs the TypeScript build:
+
+```bash
+npm run setup
+```
+
+If setup fails in the compile step after updating the bladerunner SDK tarballs, make sure you are using the current SDK packages. The build now expects the newer `vapi` typings for merger and splitter video outputs.
+
 Transpile and run via node
 
 ```bash
