@@ -5,6 +5,7 @@
   "scripts": {
     "clean": "rm -rf node_modules && (rm package-lock.json || true )&& rm -rf build",
     "setup": "(npm run clean || true) && npm install --legacy-peer-deps && tsc",
+    "capture-settings": "./scripts/capture-settings.sh",
     "pack": "tar -czf /tmp/$npm_package_name.tar.gz *"
   },
   "devDependencies": {

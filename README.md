@@ -58,6 +58,8 @@ Transpile and run via node
 npx tsc && URL=ws://172.16.210.107 SHEET=./MY-AT300.xlsx node build/main.js
 ```
 
+When a processing chain uses a LUT, Excelibur now applies the requested LUT through the VAPI connection and falls back to the default LUT if the write fails. It no longer depends on a separate HTTP lookup to `/cube`.
+
 **Parameters:**
 
 | Variable | Description                                                         |
@@ -65,6 +67,32 @@ npx tsc && URL=ws://172.16.210.107 SHEET=./MY-AT300.xlsx node build/main.js
 | `URL`    | WebSocket endpoint for the AT300 card (e.g., `ws://172.16.210.107`) |
 | `SHEET`  | Path to the Excel configuration file (`.xlsx`)                      |
 
+### 3. Capture Settings For Multiple Workbooks
+
+To configure a card with every `.xlsx` file in the input directory and save a `settings.json` snapshot after each run, use:
+
+```bash
+URL=ws://172.16.220.211 npm run capture-settings
+```
+
+This script will:
+
+* run `npx tsc` once
+* iterate over every `.xlsx` file in `./input` by default
+* run `URL=... SHEET=... node build/main.js` for each workbook
+* wait 5 seconds after each configuration completes
+* download `http://172.16.220.211/settings.json`
+* save the result as a `.json` file matching the workbook name
+
+By default, `OUTPUT_DIR` is `./output`, so `./input/61-GW-101.xlsx` becomes `./output/61-GW-101.json`.
+
+Optional environment variables:
+
+| Variable       | Description                                                               |
+| -------------- | ------------------------------------------------------------------------- |
+| `INPUT_DIR`    | Directory containing the input `.xlsx` files. Defaults to `./input`       |
+| `OUTPUT_DIR`   | Directory where the downloaded `.json` files are written. Defaults to `./output` |
+| `SETTINGS_URL` | Override the settings download URL. Defaults to `<URL converted>/settings.json` |
 
 ## Note
 
