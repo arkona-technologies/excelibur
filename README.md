@@ -75,6 +75,12 @@ To configure a card with every `.xlsx` file in the input directory and save a `s
 URL=ws://172.16.220.211 npm run capture-settings
 ```
 
+To display the script help:
+
+```bash
+./scripts/capture-settings.sh --help
+```
+
 This script will:
 
 * run `npx tsc` once
@@ -82,6 +88,7 @@ This script will:
 * run `URL=... SHEET=... node build/main.js` for each workbook
 * wait 5 seconds after each configuration completes
 * download `http://172.16.220.211/settings.json`
+* sanitize the downloaded JSON by removing `node_id_status` and `node_id_command` to strip NMOS UUID-related metadata
 * save the result as a `.json` file matching the workbook name
 
 By default, `OUTPUT_DIR` is `./output`, so `./input/61-GW-101.xlsx` becomes `./output/61-GW-101.json`.
@@ -93,6 +100,8 @@ Optional environment variables:
 | `INPUT_DIR`    | Directory containing the input `.xlsx` files. Defaults to `./input`       |
 | `OUTPUT_DIR`   | Directory where the downloaded `.json` files are written. Defaults to `./output` |
 | `SETTINGS_URL` | Override the settings download URL. Defaults to `<URL converted>/settings.json` |
+
+The JSON sanitization step removes the `node_id_status` and `node_id_command` sections after each download. This is done to sanitize the NMOS UUID content in the captured `settings.json` snapshots before they are kept for comparison or reuse.
 
 ## Note
 
