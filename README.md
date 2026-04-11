@@ -60,6 +60,8 @@ npx tsc && URL=ws://172.16.210.107 SHEET=./MY-AT300.xlsx node build/main.js
 
 When a processing chain uses a LUT, Excelibur now applies the requested LUT through the VAPI connection and falls back to the default LUT if the write fails. It no longer depends on a separate HTTP lookup to `/cube`.
 
+Sender and receiver session allocation is now idempotent across reruns. Excelibur still uses the spreadsheet label as the RTP session name, but before creating a new session it checks whether a session with that same name already exists on the card and reuses it. This prevents `NameAlreadyInUse` failures when a previous run created the session but the transmitter or receiver is no longer linked to it.
+
 **Parameters:**
 
 | Variable | Description                                                         |
@@ -75,6 +77,18 @@ To configure a card with every `.xlsx` file in the input directory and save a `s
 URL=ws://172.16.220.211 npm run capture-settings
 ```
 
+To force reprocessing of every workbook even when matching output files already exist, use:
+
+```bash
+URL=ws://172.16.220.211 ./scripts/capture-settings.sh --force
+```
+
+To keep the old detailed per-row and per-step configuration output instead of the quieter progress display, use:
+
+```bash
+URL=ws://172.16.220.211 ./scripts/capture-settings.sh --verbose
+```
+
 To display the script help:
 
 ```bash
@@ -86,6 +100,10 @@ This script will:
 * run `npx tsc` once
 * iterate over every `.xlsx` file in `./input` by default
 * run `URL=... SHEET=... node build/main.js` for each workbook
+* show one terminal progress bar per workbook as each card moves from `0%` to `100%`
+* skip any workbook whose matching `.json` output already exists, so reruns resume from failed items
+* reprocess all workbooks when `--force` or `FORCE=1` is used
+* hide the noisy underlying node/configuration logs by default, and restore the old raw output with `--verbose` or `VERBOSE=1`
 * wait 5 seconds after each configuration completes
 * download `http://172.16.220.211/settings.json`
 * sanitize the downloaded JSON by removing `node_id_status` and `node_id_command` to strip NMOS UUID-related metadata
@@ -99,6 +117,8 @@ Optional environment variables:
 | -------------- | ------------------------------------------------------------------------- |
 | `INPUT_DIR`    | Directory containing the input `.xlsx` files. Defaults to `./input`       |
 | `OUTPUT_DIR`   | Directory where the downloaded `.json` files are written. Defaults to `./output` |
+| `FORCE`        | Set to `1` to process all workbooks even if matching `.json` files already exist. Defaults to `0` |
+| `VERBOSE`      | Set to `1` to show the full underlying node/configuration output. Defaults to `0` |
 | `SETTINGS_URL` | Override the settings download URL. Defaults to `<URL converted>/settings.json` |
 
 The JSON sanitization step removes the `node_id_status` and `node_id_command` sections after each download. This is done to sanitize the NMOS UUID content in the captured `settings.json` snapshots before they are kept for comparison or reuse.

@@ -13,6 +13,7 @@ import { audio_ref, range, video_ref } from "vutil";
 import { ProcessingChainConfig } from "./zod_types.js";
 import { lock_to_genlock } from "vutil/rtp_receiver.js";
 import { shorten_label, unique_by, unique_by_n } from "./utils.js";
+import { StepProgressReporter } from "./progress.js";
 
 async function prepare_madi_ins(
   madi_ins: z.infer<typeof ProcessingChainConfig>[],
@@ -691,6 +692,7 @@ async function setup_processing_chain(
 export async function setup_processing_chains(
   vm: VAPI.AT1130.Root,
   config: z.infer<typeof ProcessingChainConfig>[],
+  on_progress?: StepProgressReporter,
 ) {
   console.log(`Preparing ${config.length} Processors`);
   const rtp_audio_ins = config
@@ -725,6 +727,7 @@ export async function setup_processing_chains(
     .filter(unique_by("output_id"));
 
   // set up necessary scaffolding for routing only; no  addresses/interfaces etc are set up!
+  on_progress?.(0, config.length + 1, "processors preparing");
   await prepare_audio_rx(rtp_audio_ins, vm);
   await prepare_video_rx(rtp_video_ins, vm);
   await prepare_video_players(video_players, vm);
@@ -735,6 +738,7 @@ export async function setup_processing_chains(
   await prepare_madi_ins(madi_ins, vm);
   await prepare_video_tx(rtp_video_outs, vm);
   await prepare_audio_tx(rtp_audio_outs, vm);
+  on_progress?.(1, config.length + 1, "processors routing");
 
   const num_cc3d = config.filter((c) => c.lut_name).length;
   const num_src = config.filter((c) => c.samplerate_converter).length;
@@ -813,10 +817,12 @@ export async function setup_processing_chains(
 
   console.table(table);
 
-  for (const conf of config) {
+  for (const [index, conf] of config.entries()) {
+    on_progress?.(index + 1, config.length + 1, `processors ${conf.name}`);
     await setup_processing_chain(vm, conf);
   }
 
+  on_progress?.(config.length + 1, config.length + 1, "processors complete");
   console.table(table);
 }
 

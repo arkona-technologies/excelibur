@@ -4,12 +4,24 @@ import { z } from "zod";
 import { find_best_vifc } from "./utils.js";
 import { SenderConfig } from "./zod_types.js";
 import assert from "assert";
+import { StepProgressReporter } from "./progress.js";
 
 export async function apply_senders_config(
   vm: VAPI.AT1130.Root,
   config: z.infer<typeof SenderConfig>[],
+  on_progress?: StepProgressReporter,
 ) {
-  for (const conf of config) {
+  const find_existing_session = async (name: string) => {
+    for (const existing of await vm.r_t_p_transmitter!.sessions.rows()) {
+      if ((await existing.row_name.status.read()) === name) {
+        return existing;
+      }
+    }
+    return null;
+  };
+
+  for (const [index, conf] of config.entries()) {
+    on_progress?.(index, config.length, `senders ${conf.label}`);
     console.log(
       `[${vm.raw.identify()}] Applying sender-config @${conf.stream_type}/${conf.id} with label ${conf.label}`,
     );
@@ -34,9 +46,11 @@ export async function apply_senders_config(
     const tx = enforce_nonnull(await get_transmitter());
     let session = await tx.generic.hosting_session.status.read();
     if (!(await tx.generic.hosting_session.status.read())) {
-      session = await vm.r_t_p_transmitter!.sessions.create_row({
-        name: `${conf.label}`,
-      });
+      session =
+        (await find_existing_session(conf.label)) ??
+        (await vm.r_t_p_transmitter!.sessions.create_row({
+          name: `${conf.label}`,
+        }));
       await session?.interfaces.command.write({
         primary: conf.primary_destination_address
           ? await find_best_vifc(
@@ -151,6 +165,8 @@ export async function apply_senders_config(
       }
     }
   }
+
+  on_progress?.(config.length, config.length, "senders complete");
 
   for (const s of await vm.r_t_p_transmitter!.sessions.rows()) {
     vm.raw.write_unchecked({ kwl: s.raw.kwl, kw: "active_command" }, true);

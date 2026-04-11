@@ -4,11 +4,22 @@ import { ReceiverConfig } from "./zod_types.js";
 import { Duration, enforce, enforce_nonnull, Timestamp } from "vscript";
 import { find_best_vifc } from "./utils.js";
 import { lock_to_genlock } from "vutil/rtp_receiver.js";
+import { StepProgressReporter } from "./progress.js";
 
 export async function apply_receivers_config(
   vm: VAPI.AT1130.Root,
   config: z.infer<typeof ReceiverConfig>[],
+  on_progress?: StepProgressReporter,
 ) {
+  const find_existing_session = async (name: string) => {
+    for (const existing of await vm.r_t_p_receiver!.sessions.rows()) {
+      if ((await existing.row_name.status.read()) === name) {
+        return existing;
+      }
+    }
+    return null;
+  };
+
   if (
     config.filter((c) => c.uhd).filter((c) => c.stream_type != "2110-30")
       .length > 8
@@ -18,7 +29,8 @@ export async function apply_receivers_config(
       for_2110_20_uhd_singlelink: "UpTo48MB",
     });
   }
-  for (const conf of config) {
+  for (const [index, conf] of config.entries()) {
+    on_progress?.(index, config.length, `receivers ${conf.label}`);
     console.log(
       `[${vm.raw.identify()}] Applying receiver-config @${conf.stream_type}/${conf.id} with label ${conf.label}`,
     );
@@ -47,9 +59,11 @@ export async function apply_receivers_config(
     await rx.generic.initiate_readout_on.command.write("FirstStreamPresent");
     let session = await rx.generic.hosting_session.status.read();
     if (!session) {
-      session = await vm.r_t_p_receiver!.sessions.create_row({
-        name: `${conf.label}`,
-      });
+      session =
+        (await find_existing_session(conf.label)) ??
+        (await vm.r_t_p_receiver!.sessions.create_row({
+          name: `${conf.label}`,
+        }));
       await session?.interfaces.command.write({
         primary: await find_best_vifc(
           vm.network_interfaces.ports.row(0),
@@ -160,6 +174,7 @@ export async function apply_receivers_config(
       }
     }
   }
+  on_progress?.(config.length, config.length, "receivers complete");
   for (const s of await vm.r_t_p_receiver!.sessions.rows()) {
     vm.raw.write_unchecked({ kwl: s.raw.kwl, kw: "active_command" }, true);
   }
