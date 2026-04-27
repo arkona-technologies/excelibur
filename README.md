@@ -22,8 +22,7 @@ These configurations typically include:
 ### 1. Prerequisites
 
 * **Node.js** (version ≥ 18)
-* **TypeScript**
-* **npx** (bundled with npm)
+* **npm** (bundled with Node.js)
 * A valid `.xlsx` configuration file that follows the `AT300-XLSX-TEMPLATE` structure
 
 
@@ -105,7 +104,7 @@ This script will:
 * reprocess all workbooks when `--force` or `FORCE=1` is used
 * hide the noisy underlying node/configuration logs by default, and restore the old raw output with `--verbose` or `VERBOSE=1`
 * wait 5 seconds after each configuration completes
-* download `http://172.16.220.211/settings.json`
+* download `settings.json` from the card specified by `URL` (or from `SETTINGS_URL` if it is set)
 * sanitize the downloaded JSON by removing `node_id_status` and `node_id_command` to strip NMOS UUID-related metadata
 * save the result as a `.json` file matching the workbook name
 
@@ -125,8 +124,8 @@ The JSON sanitization step removes the `node_id_status` and `node_id_command` se
 
 ## Note
 
-* The `.xlsx` file must follow the structure of the `AT300-XLSX-TEMPLATE`, including sheet names, headers, and data formats.
-* Incorrect or missing fields will trigger validation warnings or errors during execution.
+* The `.xlsx` file must follow the structure of the `AT300-XLSX-TEMPLATE`, including the `PROC`, `TX`, and `RX` sheet names, the expected headers, and compatible data formats.
+* Incorrect or missing fields may cause rows to be rejected and skipped during parsing. Check the console output for the underlying validation errors.
 * Excelibur communicates via WebSocket — ensure the AT300 is reachable and configured to accept connections.
 * Timing and synchronization (e.g., PTP) must be configured separately by the user.
 
