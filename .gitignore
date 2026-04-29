@@ -3,3 +3,11 @@ build
 *.tar.gz
 node_modules
 *-test
+.env.local
+.DS_Store
+dist
+deployment-output
+output
+input/.DS_Store
+spreadsheets/.DS_Store
+.local

@@ -2,74 +2,1520 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Config Upload</title>
-    <!-- <script src="https://unpkg.com/htmx.org@1.9.2"></script> -->
-    <script src="htmx/htmx.org@1.9.12"></script>
+    <title>Excelibur Console</title>
     <link rel="stylesheet" href="css/pico.min.css" />
   </head>
   <body>
     <header class="container">
-      <hgroup>
-        <h1>Upload .XLSX File for Configuration</h1>
-        <p>Select .xlsx File and apply it to this device.</p>
-      </hgroup>
+      <div class="brand-header">
+        <hgroup>
+          <h1>Excelibur</h1>
+        </hgroup>
+        <div class="brand-tools">
+          <div class="update-utility hidden" id="update-utility">
+            <button
+              type="button"
+              class="secondary update-trigger"
+              id="update-trigger"
+              title="Excelibur update status."
+            >
+              <span id="update-trigger-text">Update available</span>
+              <span class="update-trigger-badge hidden" id="update-trigger-badge" aria-hidden="true"></span>
+            </button>
+          </div>
+          <img class="brand-logo" src="BR.svg" alt="Arkona" />
+        </div>
+      </div>
     </header>
+
     <main class="container">
-
-      <div class="grid">
-        <div>
-          <hgroup>
-            <h3>Upload XLSX Sheet</h3>
-            <p>Upload Config here</p>
-          </hgroup>
+      <section class="mode-switcher panel">
+        <div class="mode-switcher-copy">
+          <h2>Workflow</h2>
+          <p>Select the task you want Excelibur to run.</p>
         </div>
-        <div>
-          <form
-            id="proc"
-            hx-encoding="multipart/form-data"
-            hx-post="/user_scripts/excel"
-            hx-swap="none"
+        <nav class="mode-tabs" aria-label="Modes">
+          <button
+            type="button"
+            class="tab-button active"
+            data-tab="deployment"
+            title="Push spreadsheet-based configurations directly to one or more AT300s."
           >
-            <fieldset role="group">
-              <input type="file" name="file" />
-              <div>
-              <button>Upload</button>
-              <img id="spinner" class="htmx-indicator" src="svg/bars.svg" />
-              </div>
+            Configure AT300s
+          </button>
+          <button
+            type="button"
+            class="tab-button"
+            data-tab="batch-capture"
+            title="Use one AT300 to generate multiple settings.json files from Excelibur spreadsheets."
+          >
+            Generate AT300 Config Files
+          </button>
+        </nav>
+      </section>
+
+      <section class="panel tab-panel" data-tab-panel="batch-capture">
+        <h2>Generate AT300 Config Files</h2>
+        <p>Create settings.json configuration files for multiple AT300s.</p>
+        <form id="batch-capture-form">
+          <div class="batch-ip-row">
+            <label
+              class="compact-field"
+              title="Enter the IP address of the single AT300 that will be reused to generate settings.json files."
+            >
+              Enter IP Address of the AT300 that will create the settings.json files
+              <input name="card_ip" placeholder="192.0.2.10" />
+            </label>
+            <label class="status-field" title="Checks reachability and software release compatibility.">
+              Status
+              <span id="batch-card-status" class="deployment-status pending">
+                Not checked
+              </span>
+            </label>
+          </div>
+          <label title="Choose the folder containing one or more Excelibur spreadsheets to process.">
+            Input Directory
+            <div class="path-picker">
+              <input name="input_dir" value="./input" />
+              <button
+                type="button"
+                class="secondary browse-directory"
+                data-target="input_dir"
+                data-prompt="Choose the workbook input folder"
+              >
+                Browse…
+              </button>
             </div>
-          </form>
+          </label>
+          <label title="Choose where generated settings.json files will be written.">
+            Output Directory
+            <div class="path-picker">
+              <input name="output_dir" value="./output" />
+              <button
+                type="button"
+                class="secondary browse-directory"
+                data-target="output_dir"
+                data-prompt="Choose the settings output folder"
+              >
+                Browse…
+              </button>
+            </div>
+          </label>
+          <div class="compact-row">
+            <label
+              class="compact-field"
+              title="Delay after each spreadsheet is applied before downloading settings.json."
+            >
+              Wait Seconds Before Capture
+              <input
+                name="wait_seconds_before_capture"
+                type="number"
+                min="0"
+                value="5"
+              />
+            </label>
+          </div>
+          <label title="Replace existing settings.json files instead of skipping them.">
+            <input name="force" type="checkbox" />
+            Force overwrite existing JSON files
+          </label>
+          <button type="submit" title="Run settings.json generation for every spreadsheet in the input folder.">Run Batch Capture</button>
+        </form>
+      </section>
+
+      <section class="panel tab-panel active" data-tab-panel="deployment">
+        <h2>Configure AT300s</h2>
+        <p>Map one or more Excelibur spreadsheet configuration files to one or more AT300s.</p>
+
+        <div class="deployment-toolbar">
+          <button
+            type="button"
+            id="add-workbooks"
+            title="Add another spreadsheet-to-AT300 mapping row."
+          >Add AT300(s)</button>
         </div>
 
-    </main>
-    <!-- <script> -->
-    <!--   htmx.on("#proc", "htmx:xhr:progress", function (evt) { -->
-    <!--     htmx -->
-    <!--       .find("#progress") -->
-    <!--       .setAttribute("value", (evt.detail.loaded / evt.detail.total) * 100); -->
-    <!--   }); -->
-    <!--   htmx.on("#rx", "htmx:xhr:progress", function (evt) { -->
-    <!--     htmx -->
-    <!--       .find("#progress") -->
-    <!--       .setAttribute("value", (evt.detail.loaded / evt.detail.total) * 100); -->
-    <!--   }); -->
-    <!--   htmx.on("#tx", "htmx:xhr:progress", function (evt) { -->
-    <!--     htmx -->
-    <!--       .find("#progress") -->
-    <!--       .setAttribute("value", (evt.detail.loaded / evt.detail.total) * 100); -->
-    <!--   }); -->
-    <!-- </script> -->
-  </body>
+        <form id="deployment-form">
+          <div class="table-wrap">
+            <table id="deployment-table">
+              <colgroup>
+                <col class="col-spreadsheet" />
+                <col class="col-ip" />
+                <col class="col-status" />
+                <col class="col-actions" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Configuration Spreadsheet</th>
+                  <th>AT300 IP Address</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="deployment-rows"></tbody>
+            </table>
+          </div>
 
-  <style>
-    .htmx-indicator {
-      opacity: 0;
-      transition: opacity 500ms ease-in;
-    }
-    .htmx-request .htmx-indicator {
-      opacity: 1;
-    }
-    .htmx-request.htmx-indicator {
-      opacity: 1;
-    }
-  </style>
+          <button
+            type="submit"
+            title="Apply all listed Excelibur spreadsheets to their matching AT300s."
+          >Configure AT300s</button>
+        </form>
+      </section>
+
+      <section class="panel progress-panel hidden" id="progress-panel">
+        <div class="progress-summary" id="progress-summary">IDLE - Ready (0%)</div>
+        <progress id="job-progress" value="0" max="100"></progress>
+      </section>
+
+      <section class="panel output-panel">
+        <h2>Output</h2>
+        <pre id="output">Ready.</pre>
+      </section>
+
+      <section class="panel">
+        <h2>Recent Jobs</h2>
+        <button id="refresh-jobs" type="button" title="Reload the recent job list.">Refresh Jobs</button>
+        <div id="jobs-list" class="jobs-list"></div>
+      </section>
+    </main>
+
+    <template id="deployment-row-template">
+      <tr>
+        <td>
+          <div class="path-picker">
+            <input
+              class="deployment-workbook"
+              placeholder="/path/to/configuration-spreadsheet.xlsx"
+              title="Choose the Excelibur spreadsheet to apply to this AT300."
+            />
+            <button type="button" class="secondary browse-workbook" title="Browse for an Excelibur spreadsheet.">
+              Browse…
+            </button>
+          </div>
+        </td>
+        <td>
+          <input
+            class="deployment-card-ip"
+            placeholder="192.0.2.10"
+            title="Enter the IP address of the AT300 that should receive this spreadsheet configuration."
+          />
+        </td>
+        <td class="deployment-status-cell">
+          <span class="deployment-status pending">Not checked</span>
+        </td>
+        <td class="actions-cell">
+          <button type="button" class="secondary remove-row" title="Remove this AT300 mapping row.">Remove</button>
+        </td>
+      </tr>
+    </template>
+
+    <script>
+      const output = document.getElementById("output");
+      const jobsList = document.getElementById("jobs-list");
+      const deploymentRows = document.getElementById("deployment-rows");
+      const deploymentRowTemplate = document.getElementById("deployment-row-template");
+      const batchCaptureForm = document.getElementById("batch-capture-form");
+      const batchCardIpInput = batchCaptureForm.querySelector('input[name="card_ip"]');
+      const batchCardStatus = document.getElementById("batch-card-status");
+      const progressPanel = document.getElementById("progress-panel");
+      const progressSummary = document.getElementById("progress-summary");
+      const jobProgress = document.getElementById("job-progress");
+      const updateUtility = document.getElementById("update-utility");
+      const updateTrigger = document.getElementById("update-trigger");
+      const updateTriggerText = document.getElementById("update-trigger-text");
+      const updateTriggerBadge = document.getElementById("update-trigger-badge");
+      const STATE_STORAGE_KEY = "excelibur-ui-state-v1";
+      let pollTimer = null;
+      let updatePollTimer = null;
+
+      function setStatus(text) {
+      }
+
+      function setProgressSummary(text, percent = 0) {
+        progressSummary.textContent = text;
+        jobProgress.value = Math.max(0, Math.min(100, Number(percent) || 0));
+        const normalized = String(text || "").toUpperCase();
+        const shouldShow =
+          normalized.startsWith("PENDING") ||
+          normalized.startsWith("RUNNING") ||
+          (normalized.startsWith("COMPLETED") && Number(percent) > 0) ||
+          (normalized.startsWith("FAILED") && Number(percent) > 0);
+        progressPanel.classList.toggle("hidden", !shouldShow);
+      }
+
+      function stopPolling() {
+        if (pollTimer) {
+          clearTimeout(pollTimer);
+          pollTimer = null;
+        }
+      }
+
+      function stopUpdatePolling() {
+        if (updatePollTimer) {
+          clearTimeout(updatePollTimer);
+          updatePollTimer = null;
+        }
+      }
+
+      function ensureWsUrl(value) {
+        const trimmed = String(value || "").trim();
+        if (!trimmed) {
+          return trimmed;
+        }
+        if (trimmed.includes("://")) {
+          return trimmed;
+        }
+        return `ws://${trimmed}`;
+      }
+
+      function markFieldValidity(input, message = "") {
+        input.setCustomValidity(message);
+        input.toggleAttribute("aria-invalid", Boolean(message));
+        if (message) {
+          input.title = message;
+        } else {
+          input.removeAttribute("title");
+        }
+      }
+
+      function isValidIpv4(value) {
+        const trimmed = String(value || "").trim();
+        if (!trimmed) {
+          return false;
+        }
+        const octets = trimmed.split(".");
+        if (octets.length !== 4) {
+          return false;
+        }
+        return octets.every((octet) => {
+          if (!/^\d{1,3}$/.test(octet)) {
+            return false;
+          }
+          const numeric = Number(octet);
+          return numeric >= 0 && numeric <= 255;
+        });
+      }
+
+      function validateIpField(input, emptyMessage = "Enter an IP") {
+        const value = input.value.trim();
+        if (!value) {
+          markFieldValidity(input, "");
+          return { ok: false, empty: true, message: emptyMessage };
+        }
+        if (!isValidIpv4(value)) {
+          const message = "Enter a valid IPv4 address";
+          markFieldValidity(input, message);
+          return { ok: false, empty: false, message };
+        }
+        markFieldValidity(input, "");
+        return { ok: true, empty: false, message: "" };
+      }
+
+      function validateWorkbookField(input) {
+        const value = input.value.trim();
+        if (!value) {
+          const message = "Choose a configuration spreadsheet";
+          markFieldValidity(input, message);
+          return { ok: false, message };
+        }
+        if (!/\.xlsx$/i.test(value)) {
+          const message = "Choose a .xlsx configuration spreadsheet";
+          markFieldValidity(input, message);
+          return { ok: false, message };
+        }
+        markFieldValidity(input, "");
+        return { ok: true, message: "" };
+      }
+
+      function validateRequiredField(input, message) {
+        const value = input.value.trim();
+        if (!value) {
+          markFieldValidity(input, message);
+          return { ok: false, message };
+        }
+        markFieldValidity(input, "");
+        return { ok: true, message: "" };
+      }
+
+      function validateWaitSecondsField(input) {
+        const raw = String(input.value || "").trim();
+        if (!raw) {
+          const message = "Enter wait seconds";
+          markFieldValidity(input, message);
+          return { ok: false, message };
+        }
+        const numeric = Number(raw);
+        if (!Number.isInteger(numeric) || numeric < 0) {
+          const message = "Wait seconds must be 0 or greater";
+          markFieldValidity(input, message);
+          return { ok: false, message };
+        }
+        markFieldValidity(input, "");
+        return { ok: true, message: "" };
+      }
+
+      function activateTab(tabName) {
+        for (const button of document.querySelectorAll(".tab-button")) {
+          button.classList.toggle("active", button.dataset.tab === tabName);
+        }
+        for (const panel of document.querySelectorAll(".tab-panel")) {
+          panel.classList.toggle("active", panel.dataset.tabPanel === tabName);
+        }
+        saveUiState();
+      }
+
+      function readUiState() {
+        try {
+          const raw = localStorage.getItem(STATE_STORAGE_KEY);
+          if (!raw) {
+            return null;
+          }
+          return JSON.parse(raw);
+        } catch {
+          return null;
+        }
+      }
+
+      function collectBatchState() {
+        return {
+          card_ip: batchCaptureForm.querySelector('input[name="card_ip"]').value.trim(),
+          input_dir: batchCaptureForm.querySelector('input[name="input_dir"]').value.trim(),
+          output_dir: batchCaptureForm.querySelector('input[name="output_dir"]').value.trim(),
+          wait_seconds_before_capture: batchCaptureForm
+            .querySelector('input[name="wait_seconds_before_capture"]')
+            .value.trim(),
+          force: batchCaptureForm.querySelector('input[name="force"]').checked,
+        };
+      }
+
+      function collectDeploymentState() {
+        const rows = Array.from(deploymentRows.querySelectorAll("tr")).map((row) => ({
+          workbook_path: row.querySelector(".deployment-workbook").value.trim(),
+          target_ip: row.querySelector(".deployment-card-ip").value.trim(),
+        }));
+
+        return rows.filter((row) => row.workbook_path || row.target_ip);
+      }
+
+      function saveUiState() {
+        const activeTab =
+          document.querySelector(".tab-button.active")?.dataset.tab ?? "deployment";
+        const state = {
+          active_tab: activeTab,
+          batch_capture: collectBatchState(),
+          deployment_rows: collectDeploymentState(),
+        };
+        localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function restoreBatchState(state) {
+        if (!state) {
+          return;
+        }
+        batchCaptureForm.querySelector('input[name="card_ip"]').value = state.card_ip ?? "";
+        batchCaptureForm.querySelector('input[name="input_dir"]').value =
+          state.input_dir ?? "./input";
+        batchCaptureForm.querySelector('input[name="output_dir"]').value =
+          state.output_dir ?? "./output";
+        batchCaptureForm.querySelector('input[name="wait_seconds_before_capture"]').value =
+          state.wait_seconds_before_capture ?? "5";
+        batchCaptureForm.querySelector('input[name="force"]').checked = Boolean(state.force);
+      }
+
+      function restoreDeploymentState(rows) {
+        deploymentRows.innerHTML = "";
+        if (Array.isArray(rows) && rows.length > 0) {
+          for (const row of rows) {
+            createDeploymentRow(row);
+          }
+          return;
+        }
+        createDeploymentRow();
+      }
+
+      async function postJson(url, body) {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const text = await response.text();
+        let payload;
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          payload = { raw: text };
+        }
+        if (!response.ok) {
+          throw new Error(payload.message || text || `Request failed: ${response.status}`);
+        }
+        return payload;
+      }
+
+      function renderUpdateState(payload) {
+        const state = payload?.state;
+        if (!payload?.supported || !state) {
+          updateUtility.classList.add("hidden");
+          return;
+        }
+
+        const shouldShow = ["available", "downloading", "downloaded"].includes(state.status);
+        updateUtility.classList.toggle("hidden", !shouldShow);
+        if (!shouldShow) {
+          return;
+        }
+
+        updateTriggerBadge.className = "update-trigger-badge hidden";
+        if (["available", "downloading"].includes(state.status)) {
+          updateTriggerBadge.className = "update-trigger-badge available";
+        } else if (state.status === "downloaded") {
+          updateTriggerBadge.className = "update-trigger-badge ready";
+        }
+
+        if (state.status === "downloaded") {
+          updateTriggerText.textContent = "Update available. Click to update";
+          updateTrigger.disabled = false;
+          updateTrigger.title = `Install Excelibur ${state.downloadedVersion ?? state.availableVersion ?? ""}`.trim();
+        } else {
+          updateTriggerText.textContent = "Update available";
+          updateTrigger.disabled = true;
+          updateTrigger.title = state.message || "Downloading Excelibur update...";
+        }
+      }
+
+      async function refreshUpdateState() {
+        try {
+          const payload = await fetch("/api/app-update").then((response) => response.json());
+          renderUpdateState(payload);
+          stopUpdatePolling();
+          if (payload?.supported && ["checking", "available", "downloading"].includes(payload.state?.status)) {
+            updatePollTimer = setTimeout(() => refreshUpdateState().catch(() => {}), 1500);
+          }
+        } catch {
+          updateUtility.classList.add("hidden");
+        }
+      }
+
+      async function pickDirectory(promptText) {
+        return await postJson("/api/pick-directory", { prompt: promptText });
+      }
+
+      async function pickWorkbooks(promptText) {
+        return await postJson("/api/pick-workbooks", { prompt: promptText });
+      }
+
+      function updateDeploymentStatus(row, kind, text) {
+        const element = row.querySelector(".deployment-status");
+        element.className = `deployment-status ${kind}`;
+        element.textContent = text;
+      }
+
+      function updateBatchCardStatus(kind, text) {
+        batchCardStatus.className = `deployment-status ${kind}`;
+        batchCardStatus.textContent = text;
+      }
+
+      async function checkBatchCard() {
+        const ipValidation = validateIpField(batchCardIpInput);
+        if (!ipValidation.ok) {
+          updateBatchCardStatus(ipValidation.empty ? "pending" : "error", ipValidation.message);
+          return null;
+        }
+        const targetIp = batchCardIpInput.value.trim();
+
+        updateBatchCardStatus("checking", "Checking...");
+        const payload = await postJson("/api/card-check", { ip: targetIp });
+
+        if (payload.reachable && payload.supported) {
+          updateBatchCardStatus("ok", `OK ${payload.release}`);
+        } else if (payload.reachable) {
+          updateBatchCardStatus(
+            "warn",
+            `Unsupported ${payload.release ?? ""}`.trim(),
+          );
+        } else if (payload.busy) {
+          updateBatchCardStatus("warn", "Busy");
+        } else {
+          updateBatchCardStatus("error", "Unreachable");
+        }
+
+        return payload;
+      }
+
+      function wireCardIpInput(input, handlers) {
+        let inFlightCheck = null;
+        let lastCheckedValue = "";
+        let lastCheckTimestamp = 0;
+
+        async function runCheck(update_status_line = true) {
+          const validation = validateIpField(input);
+          if (!validation.ok) {
+            if (validation.empty) {
+              handlers.onEmpty();
+            } else {
+              handlers.onInvalid(validation.message, update_status_line);
+            }
+            return;
+          }
+          const targetIp = input.value.trim();
+
+          const now = Date.now();
+          if (
+            inFlightCheck ||
+            (targetIp === lastCheckedValue && now - lastCheckTimestamp < 750)
+          ) {
+            return;
+          }
+
+          lastCheckedValue = targetIp;
+          lastCheckTimestamp = now;
+          inFlightCheck = handlers
+            .onCheck()
+            .then(() => {
+              if (update_status_line) {
+                setStatus("AT300 check complete");
+              }
+            })
+            .catch((error) => {
+              handlers.onError(error, update_status_line);
+            })
+            .finally(() => {
+              inFlightCheck = null;
+            });
+
+          await inFlightCheck;
+        }
+
+        input.addEventListener("change", async () => {
+          try {
+            await runCheck(true);
+          } catch (error) {
+            handlers.onError(error);
+          }
+        });
+
+        input.addEventListener("blur", async () => {
+          try {
+            await runCheck(false);
+          } catch (error) {
+            handlers.onError(error, false);
+          }
+        });
+
+        input.addEventListener("keydown", async (event) => {
+          if (event.key !== "Enter") {
+            return;
+          }
+          event.preventDefault();
+          try {
+            await runCheck(true);
+          } catch (error) {
+            handlers.onError(error);
+          }
+        });
+      }
+
+      async function checkDeploymentRow(row) {
+        const input = row.querySelector(".deployment-card-ip");
+        const ipValidation = validateIpField(input);
+        if (!ipValidation.ok) {
+          updateDeploymentStatus(row, ipValidation.empty ? "pending" : "error", ipValidation.message);
+          return null;
+        }
+        const targetIp = input.value.trim();
+
+        updateDeploymentStatus(row, "checking", "Checking...");
+        const payload = await postJson("/api/card-check", { ip: targetIp });
+
+        if (payload.reachable && payload.supported) {
+          updateDeploymentStatus(row, "ok", `OK ${payload.release}`);
+        } else if (payload.reachable) {
+          updateDeploymentStatus(row, "warn", `Unsupported ${payload.release ?? ""}`.trim());
+        } else if (payload.busy) {
+          updateDeploymentStatus(row, "warn", "Busy");
+        } else {
+          updateDeploymentStatus(row, "error", "Unreachable");
+        }
+
+        return payload;
+      }
+
+      function renderJob(job) {
+        const lines = [
+          `Job: ${job.id}`,
+          `Type: ${job.type}`,
+          `Status: ${job.status}`,
+          `Summary: ${job.summary}`,
+          `Resources: ${job.resource_keys.join(", ")}`,
+          `Progress: ${job.progress_percent}% ${job.progress_label}`,
+          "",
+          "Logs:",
+          ...(job.logs.length ? job.logs : ["<none>"]),
+        ];
+
+        if (job.result) {
+          lines.push("", "Result:", JSON.stringify(job.result, null, 2));
+        }
+
+        if (job.error) {
+          lines.push("", "Error:", job.error);
+        }
+
+        output.textContent = lines.join("\n");
+        const summary = `${job.status.toUpperCase()} - ${job.summary} (${job.progress_percent}%)`;
+        setStatus(summary);
+        setProgressSummary(summary, job.progress_percent);
+      }
+
+      async function refreshJobs() {
+        const payload = await fetch("/api/jobs").then((response) => response.json());
+        jobsList.innerHTML = "";
+        for (const job of payload.jobs) {
+          const article = document.createElement("article");
+          article.className = "job-card";
+          article.innerHTML = `
+            <strong>${job.summary}</strong>
+            <div>${job.type} · ${job.status} · ${job.progress_percent}%</div>
+            <div>${job.resource_keys.join(", ")}</div>
+            <div><code>${job.id}</code></div>
+          `;
+          article.addEventListener("click", () => pollJob(job.id));
+          jobsList.appendChild(article);
+        }
+      }
+
+      async function pollJob(jobId) {
+        stopPolling();
+        try {
+          const payload = await fetch(`/api/jobs/${jobId}`).then((response) =>
+            response.json(),
+          );
+          if (!payload.ok) {
+            throw new Error(payload.message || "Unable to load job");
+          }
+          renderJob(payload.job);
+          await refreshJobs();
+          if (payload.job.status === "pending" || payload.job.status === "running") {
+            pollTimer = setTimeout(() => pollJob(jobId), 1000);
+          }
+        } catch (error) {
+          setStatus("Failed to poll job");
+          output.textContent = error.message;
+        }
+      }
+
+      function createDeploymentRow(values = {}) {
+        const fragment = deploymentRowTemplate.content.cloneNode(true);
+        const row = fragment.querySelector("tr");
+        row.querySelector(".deployment-workbook").value = values.workbook_path || "";
+        row.querySelector(".deployment-card-ip").value = values.target_ip || "";
+        row.querySelector(".browse-workbook").addEventListener("click", async () => {
+          setStatus("Opening workbook picker...");
+          try {
+            const payload = await pickWorkbooks("Choose a configuration spreadsheet");
+            const [workbookPath] = payload.paths;
+            if (!workbookPath) {
+              throw new Error("No configuration spreadsheet was selected.");
+            }
+            const workbookInput = row.querySelector(".deployment-workbook");
+            workbookInput.value = workbookPath;
+            validateWorkbookField(workbookInput);
+            saveUiState();
+            setStatus(`Selected ${workbookPath}`);
+          } catch (error) {
+            setStatus("Workbook picker failed");
+            output.textContent = error.message;
+          }
+        });
+        const workbookInput = row.querySelector(".deployment-workbook");
+        workbookInput.addEventListener("input", saveUiState);
+        workbookInput.addEventListener("blur", () => {
+          validateWorkbookField(workbookInput);
+          saveUiState();
+        });
+        workbookInput.addEventListener("change", () => {
+          validateWorkbookField(workbookInput);
+          saveUiState();
+        });
+        const ipInput = row.querySelector(".deployment-card-ip");
+        ipInput.addEventListener("input", saveUiState);
+        wireCardIpInput(row.querySelector(".deployment-card-ip"), {
+          onCheck: () => checkDeploymentRow(row),
+          onEmpty: () => updateDeploymentStatus(row, "pending", "Enter an IP"),
+          onInvalid: (message, update_status_line = true) => {
+            updateDeploymentStatus(row, "error", message);
+            if (update_status_line) {
+              setStatus("AT300 check skipped");
+            }
+          },
+          onError: (error, update_status_line = true) => {
+            updateDeploymentStatus(row, "error", "Check failed");
+            if (update_status_line) {
+              setStatus("AT300 check failed");
+            }
+            output.textContent = error.message;
+          },
+        });
+        row.querySelector(".remove-row").addEventListener("click", () => {
+          row.remove();
+          if (!deploymentRows.children.length) {
+            createDeploymentRow();
+          }
+          saveUiState();
+        });
+        deploymentRows.appendChild(row);
+        saveUiState();
+      }
+
+      function collectDeploymentJobs() {
+        const rows = Array.from(deploymentRows.querySelectorAll("tr"));
+        const jobs = rows
+          .map((row, index) => {
+            const workbookInput = row.querySelector(".deployment-workbook");
+            const ipInput = row.querySelector(".deployment-card-ip");
+            const workbookPath = workbookInput.value.trim();
+            const targetIp = ipInput.value.trim();
+            if (!workbookPath && !targetIp) {
+              markFieldValidity(workbookInput, "");
+              markFieldValidity(ipInput, "");
+              return null;
+            }
+            const workbookValidation = validateWorkbookField(workbookInput);
+            if (!workbookValidation.ok) {
+              throw new Error(`Deployment row ${index + 1}: ${workbookValidation.message}.`);
+            }
+            const ipValidation = validateIpField(ipInput, "Enter an AT300 IP address");
+            if (!ipValidation.ok) {
+              throw new Error(`Deployment row ${index + 1}: ${ipValidation.message}.`);
+            }
+            return {
+              name: workbookPath.split("/").pop().replace(/\.xlsx$/i, ""),
+              workbook_path: workbookPath,
+              target_ip: targetIp,
+            };
+          })
+          .filter(Boolean);
+
+        if (!jobs.length) {
+          throw new Error("Add at least one deployment row before running jobs.");
+        }
+
+        return jobs;
+      }
+
+      document
+        .querySelectorAll(".tab-button")
+        .forEach((button) =>
+          button.addEventListener("click", () => activateTab(button.dataset.tab)),
+        );
+
+      updateTrigger.addEventListener("click", async () => {
+        if (updateTrigger.disabled) {
+          return;
+        }
+        updateTrigger.disabled = true;
+        try {
+          const payload = await postJson("/api/app-update/install", {});
+          setStatus(payload.message || "Installing update...");
+        } catch (error) {
+          setStatus("Update install failed");
+          output.textContent = error.message;
+        } finally {
+          updateTrigger.disabled = false;
+        }
+      });
+
+      for (const input of batchCaptureForm.querySelectorAll("input")) {
+        input.addEventListener("input", saveUiState);
+        input.addEventListener("change", saveUiState);
+      }
+
+      batchCaptureForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          stopPolling();
+          setStatus("Submitting batch capture job...");
+          setProgressSummary("PENDING - Submitting batch capture job... (0%)", 0);
+          output.textContent = "Submitting batch capture job...";
+          const form = new FormData(event.currentTarget);
+          try {
+            const inputDirInput = batchCaptureForm.querySelector('input[name="input_dir"]');
+            const outputDirInput = batchCaptureForm.querySelector('input[name="output_dir"]');
+            const waitSecondsInput = batchCaptureForm.querySelector(
+              'input[name="wait_seconds_before_capture"]',
+            );
+            const ipValidation = validateIpField(batchCardIpInput, "Enter an AT300 IP address");
+            if (!ipValidation.ok) {
+              updateBatchCardStatus(ipValidation.empty ? "pending" : "error", ipValidation.message);
+              throw new Error(ipValidation.message);
+            }
+            const inputDirValidation = validateRequiredField(
+              inputDirInput,
+              "Choose an input directory",
+            );
+            if (!inputDirValidation.ok) {
+              throw new Error(inputDirValidation.message);
+            }
+            const outputDirValidation = validateRequiredField(
+              outputDirInput,
+              "Choose an output directory",
+            );
+            if (!outputDirValidation.ok) {
+              throw new Error(outputDirValidation.message);
+            }
+            const waitSecondsValidation = validateWaitSecondsField(waitSecondsInput);
+            if (!waitSecondsValidation.ok) {
+              throw new Error(waitSecondsValidation.message);
+            }
+            const payload = await postJson("/api/batch-capture", {
+              url: ensureWsUrl(form.get("card_ip")),
+              input_dir: form.get("input_dir"),
+              output_dir: form.get("output_dir"),
+              force: form.get("force") === "on",
+              wait_seconds_before_capture: Number(
+                form.get("wait_seconds_before_capture") || 5,
+              ),
+            });
+            await pollJob(payload.job_id);
+          } catch (error) {
+            setStatus("Batch capture submission failed");
+            output.textContent = error.message;
+          }
+        });
+
+      wireCardIpInput(batchCardIpInput, {
+        onCheck: () => checkBatchCard(),
+        onEmpty: () => updateBatchCardStatus("pending", "Enter an IP"),
+        onInvalid: (message, update_status_line = true) => {
+          updateBatchCardStatus("error", message);
+          if (update_status_line) {
+            setStatus("AT300 check skipped");
+          }
+        },
+        onError: (error, update_status_line = true) => {
+          updateBatchCardStatus("error", "Check failed");
+          if (update_status_line) {
+            setStatus("AT300 check failed");
+          }
+          output.textContent = error.message;
+        },
+      });
+
+      document
+        .getElementById("deployment-form")
+        .addEventListener("submit", async (event) => {
+          event.preventDefault();
+          stopPolling();
+          setStatus("Submitting deployment job...");
+          setProgressSummary("PENDING - Submitting deployment job... (0%)", 0);
+          output.textContent = "Submitting deployment job...";
+          try {
+            const payload = await postJson("/api/deploy-jobs", {
+              defaults: {},
+              jobs: collectDeploymentJobs(),
+            });
+            await pollJob(payload.job_id);
+          } catch (error) {
+            setStatus("Deployment submission failed");
+            output.textContent = error.message;
+          }
+        });
+
+      document
+        .getElementById("refresh-jobs")
+        .addEventListener("click", () =>
+          refreshJobs().catch((error) => {
+            setStatus("Failed to refresh jobs");
+            output.textContent = error.message;
+          }),
+        );
+
+      document
+        .getElementById("add-workbooks")
+        .addEventListener("click", () => {
+          createDeploymentRow();
+          setStatus("Added deployment row");
+        });
+
+      for (const button of document.querySelectorAll(".browse-directory")) {
+        button.addEventListener("click", async () => {
+          setStatus("Opening folder picker...");
+          try {
+            const payload = await pickDirectory(button.dataset.prompt);
+            const target = document.querySelector(
+              `input[name="${button.dataset.target}"]`,
+            );
+            if (!target) {
+              throw new Error("Target input not found");
+            }
+            target.value = payload.path;
+            validateRequiredField(target, `Choose ${button.dataset.target.replace(/_/g, " ")}`);
+            saveUiState();
+            setStatus(`Selected ${payload.path}`);
+          } catch (error) {
+            setStatus("Folder picker failed");
+            output.textContent = error.message;
+          }
+        });
+      }
+
+      for (const input of [
+        batchCaptureForm.querySelector('input[name="input_dir"]'),
+        batchCaptureForm.querySelector('input[name="output_dir"]'),
+      ]) {
+        input.addEventListener("blur", () =>
+          validateRequiredField(
+            input,
+            `Choose ${input.name.replace(/_/g, " ")}`,
+          ),
+        );
+        input.addEventListener("change", () =>
+          validateRequiredField(
+            input,
+            `Choose ${input.name.replace(/_/g, " ")}`,
+          ),
+        );
+      }
+
+      batchCaptureForm
+        .querySelector('input[name="wait_seconds_before_capture"]')
+        .addEventListener("blur", (event) => validateWaitSecondsField(event.currentTarget));
+
+      const persistedState = readUiState();
+      restoreBatchState(persistedState?.batch_capture);
+      restoreDeploymentState(persistedState?.deployment_rows);
+      activateTab(persistedState?.active_tab ?? "deployment");
+      refreshUpdateState().catch(() => {});
+      refreshJobs().catch((error) => {
+        setStatus("Failed to load jobs");
+        output.textContent = error.message;
+      });
+    </script>
+
+    <style>
+      :root {
+        --at300-bg: #090b0c;
+        --at300-surface: #000c1d;
+        --at300-surface-2: #001f47;
+        --at300-surface-3: #00224c;
+        --at300-border: rgba(255, 255, 255, 0.15);
+        --at300-text: #ffffff;
+        --at300-text-dim: #ababab;
+        --at300-orange: #f8a335;
+        --at300-orange-soft: rgba(248, 163, 53, 0.14);
+        --at300-cyan: #00aaff;
+        --at300-cyan-soft: rgba(0, 170, 255, 0.16);
+        --at300-green: #00e37d;
+        --at300-green-soft: rgba(0, 227, 125, 0.14);
+        --at300-red: #f44a58;
+        --at300-red-soft: rgba(244, 74, 88, 0.14);
+      }
+
+      body {
+        background-color: var(--at300-bg);
+        background-image: radial-gradient(
+          circle at 1px 1px,
+          rgba(255, 255, 255, 0.18) 1px,
+          transparent 0
+        );
+        background-size: 20px 20px;
+        min-height: 100vh;
+        overflow-x: hidden;
+        color: var(--at300-text);
+        font-family:
+          Lato, "Lato Local", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      main {
+        display: grid;
+        gap: 1.5rem;
+        min-width: 0;
+      }
+
+      .brand-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .brand-tools {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.9rem;
+      }
+
+      .brand-logo {
+        width: 3.5rem;
+        height: 3.5rem;
+        flex: 0 0 auto;
+      }
+
+      .mode-switcher {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .mode-switcher-copy h2 {
+        margin-bottom: 0.25rem;
+      }
+
+      .mode-switcher-copy p {
+        margin-bottom: 0;
+      }
+
+      .mode-tabs {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        padding: 0.4rem;
+        border: 1px solid var(--at300-border);
+        border-radius: 999px;
+        background: rgba(0, 12, 29, 0.72);
+        box-shadow: inset 0 0 0 1px rgba(0, 170, 255, 0.08);
+      }
+
+      .tab-button {
+        margin-bottom: 0;
+        border-radius: 999px;
+        padding-inline: 1.1rem;
+        white-space: nowrap;
+        background: transparent;
+        border-color: transparent;
+        color: var(--at300-text-dim);
+      }
+
+      .tab-button:hover,
+      .tab-button:focus-visible {
+        border-color: rgba(0, 170, 255, 0.45);
+        color: var(--at300-text);
+      }
+
+      .tab-button.active {
+        background: var(--at300-orange);
+        border-color: var(--at300-orange);
+        color: #151c26;
+        box-shadow: 0 8px 20px -12px rgba(248, 163, 53, 0.95);
+      }
+
+      .tab-panel {
+        display: none;
+      }
+
+      .tab-panel.active {
+        display: block;
+      }
+
+      .panel {
+        background: var(--at300-surface);
+        border: 1px solid var(--at300-border);
+        border-radius: 1rem;
+        padding: 1.25rem;
+        box-shadow: inset 0 -6px 10px -8px rgba(0, 170, 255, 0.45);
+        min-width: 0;
+      }
+
+      .output-panel {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .output-panel h2,
+      .output-panel p,
+      .output-panel pre {
+        margin: 0;
+      }
+
+      .update-utility {
+        position: relative;
+      }
+
+      .update-utility.hidden {
+        display: none;
+      }
+
+      .update-trigger {
+        margin: 0;
+        padding: 0.45rem 0.85rem;
+        min-height: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(0, 12, 29, 0.72);
+        border-color: rgba(0, 170, 255, 0.18);
+        color: var(--at300-text-dim);
+        box-shadow: none;
+        font-size: 0.95rem;
+      }
+
+      .update-trigger:hover,
+      .update-trigger:focus-visible,
+      .update-trigger:disabled,
+      .update-utility:not(.hidden) .update-trigger {
+        color: var(--at300-text);
+        border-color: rgba(0, 170, 255, 0.42);
+        background: rgba(0, 34, 76, 0.8);
+      }
+
+      .update-trigger:disabled {
+        opacity: 0.92;
+        cursor: default;
+      }
+
+      .update-trigger-badge {
+        width: 0.55rem;
+        height: 0.55rem;
+        border-radius: 999px;
+        flex: 0 0 auto;
+        box-shadow: 0 0 0 3px rgba(248, 163, 53, 0.12);
+      }
+
+      .update-trigger-badge.hidden {
+        display: none;
+      }
+
+      .update-trigger-badge.available {
+        background: var(--at300-orange);
+      }
+
+      .update-trigger-badge.ready {
+        background: var(--at300-green);
+        box-shadow: 0 0 0 3px rgba(0, 227, 125, 0.12);
+      }
+
+      .progress-panel.hidden {
+        display: none;
+      }
+
+      .progress-summary {
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+      }
+
+      progress {
+        width: 100%;
+        height: 1rem;
+        accent-color: var(--at300-orange);
+      }
+
+      textarea,
+      input {
+        font-family: "Courier New", Courier, monospace;
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+      }
+
+      h1,
+      h2,
+      h3,
+      p,
+      th,
+      td,
+      label {
+        color: var(--at300-text);
+      }
+
+      p {
+        color: var(--at300-text-dim);
+      }
+
+      .path-picker {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.75rem;
+        align-items: center;
+        min-width: 0;
+      }
+
+      .path-picker > * {
+        min-width: 0;
+      }
+
+      .deployment-toolbar {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+      }
+
+      .compact-row {
+        display: flex;
+        gap: 1rem;
+        align-items: end;
+        flex-wrap: wrap;
+      }
+
+      .compact-field {
+        width: min(100%, 18rem);
+      }
+
+      .batch-ip-row {
+        display: flex;
+        gap: 1rem;
+        align-items: end;
+        flex-wrap: wrap;
+      }
+
+      .batch-ip-row .compact-field {
+        width: min(100%, 20rem);
+      }
+
+      .status-field {
+        width: auto;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        margin: 1rem 0 1.5rem;
+        min-width: 0;
+      }
+
+      table {
+        width: 100%;
+        table-layout: fixed;
+        background: transparent;
+      }
+
+      .col-spreadsheet {
+        width: 42%;
+      }
+
+      .col-ip {
+        width: 23%;
+      }
+
+      .col-status {
+        width: 23%;
+      }
+
+      .col-actions {
+        width: 12%;
+      }
+
+      th,
+      td {
+        vertical-align: middle;
+        min-width: 0;
+      }
+
+      #deployment-table th,
+      #deployment-table td {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+      }
+
+      #deployment-table thead,
+      #deployment-table tbody,
+      #deployment-table tr,
+      #deployment-table th,
+      #deployment-table td {
+        background: transparent;
+      }
+
+      #deployment-table thead th {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        color: var(--at300-text);
+      }
+
+      #deployment-table tbody tr {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      #deployment-table th:first-child,
+      #deployment-table td:first-child {
+        padding-left: 0;
+      }
+
+      #deployment-table th:last-child,
+      #deployment-table td:last-child {
+        padding-right: 0;
+      }
+
+      .checkbox-cell,
+      .actions-cell {
+        white-space: nowrap;
+      }
+
+      .actions-cell {
+        text-align: right;
+      }
+
+      .deployment-status-cell {
+        overflow-wrap: anywhere;
+      }
+
+      .deployment-status {
+        display: inline-flex;
+        max-width: 100%;
+        min-width: 0;
+        padding: 0.35rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        line-height: 1.2;
+      }
+
+      .deployment-status.pending {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--at300-text-dim);
+      }
+
+      .deployment-status.checking {
+        background: var(--at300-cyan-soft);
+        color: var(--at300-cyan);
+      }
+
+      .deployment-status.ok {
+        background: var(--at300-green-soft);
+        color: var(--at300-green);
+      }
+
+      .deployment-status.warn {
+        background: var(--at300-orange-soft);
+        color: var(--at300-orange);
+      }
+
+      .deployment-status.error {
+        background: var(--at300-red-soft);
+        color: var(--at300-red);
+      }
+
+      pre {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 14rem;
+        max-height: 28rem;
+        overflow: auto;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        background: #1c1c1c;
+        color: var(--at300-text);
+        padding: 1rem;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: none;
+      }
+
+      #output {
+        all: unset;
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 14rem;
+        max-height: 28rem;
+        overflow: auto;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        font-family: "Courier New", Courier, monospace;
+        line-height: 1.5;
+        background: #1c1c1c;
+        color: var(--at300-text);
+        padding: 1rem;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .jobs-list {
+        display: grid;
+        gap: 0.75rem;
+        margin-top: 1rem;
+      }
+
+      .job-card {
+        cursor: pointer;
+        border: 1px solid var(--at300-border);
+        border-radius: 0.75rem;
+        padding: 0.875rem 1rem;
+        background: rgba(0, 34, 76, 0.7);
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      button,
+      input,
+      progress {
+        border-radius: 8px;
+      }
+
+      button {
+        background: var(--at300-surface-3);
+        border-color: var(--at300-border);
+        color: var(--at300-text);
+        box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.6);
+      }
+
+      button.secondary {
+        background: #282828;
+      }
+
+      button:hover,
+      button:focus {
+        border-color: var(--at300-cyan);
+        filter: brightness(1.08);
+      }
+
+      button[type="submit"],
+      #add-workbooks {
+        background: var(--at300-surface-2);
+      }
+
+      input[type="text"],
+      input[type="number"],
+      input:not([type]),
+      textarea {
+        background: #282828;
+        color: var(--at300-text);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        outline: 1px solid rgba(255, 255, 255, 0.12);
+        outline-offset: -1px;
+        box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.6);
+      }
+
+      input::placeholder,
+      textarea::placeholder {
+        color: var(--at300-text-dim);
+      }
+
+      input:focus,
+      textarea:focus {
+        outline-color: var(--at300-cyan);
+        border-color: var(--at300-cyan);
+        background: #2a2a2a;
+      }
+
+      input[aria-invalid="true"],
+      textarea[aria-invalid="true"] {
+        border-color: var(--at300-red);
+        outline-color: var(--at300-red);
+        background: rgba(244, 74, 88, 0.08);
+      }
+
+      progress::-webkit-progress-bar {
+        background-color: #282828;
+        border-radius: 999px;
+      }
+
+      progress::-webkit-progress-value {
+        background-color: var(--at300-orange);
+        border-radius: 999px;
+      }
+
+      progress::-moz-progress-bar {
+        background-color: var(--at300-orange);
+        border-radius: 999px;
+      }
+    </style>
+  </body>
 </html>

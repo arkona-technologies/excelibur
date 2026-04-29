@@ -24,6 +24,7 @@
     "pretty": false,
     "removeComments": true,
     "resolveJsonModule": true,
+    "skipLibCheck": true,
     "sourceMap": true,
     "strict": true,
     "target": "es2022"

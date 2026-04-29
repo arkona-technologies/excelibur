@@ -1,7 +1,7 @@
 # Excelibur
 
 **Excelibur** is a tool that converts Excel-based configuration sheets into machine-readable configuration data for **Arkona Technologies AT300 Processing Cards**.
-It provides a convenient way to define and deploy AT300 configurations through familiar spreadsheet workflows.
+It provides desktop, web, and CLI workflows for generating and applying AT300 configurations through familiar spreadsheet-based workflows.
 
 
 ## Overview
@@ -16,19 +16,25 @@ These configurations typically include:
 
 **Important:** Excelibur does *not* manage or configure timing parameters such as **PTP** or related synchronization settings. These must be set up separately by the end user.
 
+Current operator workflows:
 
-## Usage
+* `Configure AT300s`
+  Apply one or more Excelibur spreadsheet configuration files to one or more AT300 cards.
+* `Generate AT300 Config Files`
+  Use one reachable AT300 to generate sanitized `settings.json` snapshots for many spreadsheets.
 
-### 1. Prerequisites
+
+## Prerequisites
 
 * **Node.js** (version ≥ 18)
 * **npm** (bundled with Node.js)
 * A valid `.xlsx` configuration file that follows the `AT300-XLSX-TEMPLATE` structure
+* Network reachability to the target AT300 card(s)
 
 
-### 2. Build and Run
+## Setup
 
-Update the bladerunner sdk dependencies to point at a local AT300 running the appropriate release.
+Excelibur uses the AT300-hosted SDK tarballs for the currently targeted release. Update the SDK dependencies in `package.json` to point at a reachable AT300 running the intended software version:
 
 ```json
   "dependencies": {
@@ -37,13 +43,14 @@ Update the bladerunner sdk dependencies to point at a local AT300 running the ap
     "vutil": "http://CHANGE-THIS-TO-YOUR-AT300/vutil.tar.gz",
   }
   ```
-Install dependencies via your preferred package manager
+
+Install dependencies:
 
 ```bash
 npm install --legacy-peer-deps 
 ```
 
-Or use the setup script, which performs a clean install with legacy peer dependency resolution and then runs the TypeScript build:
+Or use the setup script, which performs a clean install and a TypeScript build:
 
 ```bash
 npm run setup
@@ -51,7 +58,48 @@ npm run setup
 
 If setup fails in the compile step after updating the bladerunner SDK tarballs, make sure you are using the current SDK packages. The build now expects the newer `vapi` typings for merger and splitter video outputs.
 
-Transpile and run via node
+## Desktop App
+
+Launch the Electron desktop app:
+
+```bash
+npm run desktop
+```
+
+The desktop app embeds the local Excelibur server and opens the UI directly in an application window.
+
+Current desktop packaging status:
+
+* macOS packaging is set up as a signed `universal` build
+* one packaged app runs on both Intel and Apple Silicon Macs
+* GitHub Releases are configured as the update feed
+* notarization is wired in, with explicit `notarytool` submission/status handling
+
+## Local Web UI / Development Server
+
+For day-to-day UI and logic development, the web server workflow is still useful and usually faster to iterate on than the packaged Electron app:
+
+```bash
+npm run server
+```
+
+Then open:
+
+```text
+http://127.0.0.1:30001/
+```
+
+Recommended workflow:
+
+* use `npm run server` while developing and debugging
+* use `npm run desktop` for user-facing testing
+* use `npm run desktop-pack` for release packaging
+
+## CLI Usage
+
+### Apply One Workbook Directly
+
+Transpile and run via Node:
 
 ```bash
 npx tsc && URL=ws://172.16.210.107 SHEET=./MY-AT300.xlsx node build/main.js
@@ -68,7 +116,7 @@ Sender and receiver session allocation is now idempotent across reruns. Excelibu
 | `URL`    | WebSocket endpoint for the AT300 card (e.g., `ws://172.16.210.107`) |
 | `SHEET`  | Path to the Excel configuration file (`.xlsx`)                      |
 
-### 3. Capture Settings For Multiple Workbooks
+### Generate `settings.json` Files For Multiple Workbooks
 
 To configure a card with every `.xlsx` file in the input directory and save a `settings.json` snapshot after each run, use:
 
@@ -122,12 +170,78 @@ Optional environment variables:
 
 The JSON sanitization step removes the `node_id_status` and `node_id_command` sections after each download. This is done to sanitize the NMOS UUID content in the captured `settings.json` snapshots before they are kept for comparison or reuse.
 
-## Note
+### Deployment Jobs Through The Shared SDK Runtime
+
+For multi-card deployment through the server-side shared SDK/runtime path:
+
+```bash
+npm run deploy-jobs-with-sdk -- ./deployment-jobs.example.json
+```
+
+This path is what the desktop/web deployment UI uses internally.
+
+Behavior:
+
+* target cards are checked first
+* the deployment batch expects one shared AT300 release across the batch
+* the SDK is fetched once per release and reused
+* deployment currently runs one card at a time for predictable behavior
+
+## Packaging And Signing
+
+Build the macOS desktop installer:
+
+```bash
+npm run desktop-pack
+```
+
+This currently produces a macOS DMG in `./dist/`.
+
+Local signing/notarization setup uses:
+
+* `.env.local`
+  Local secrets such as the certificate password and Apple notarization credentials
+* `.local/ExceliburCertificate.p12`
+  Local signing certificate bundle
+
+Expected notarization-related values in `.env.local`:
+
+```bash
+EXCELIBUR_CERT_PASSWORD='...'
+APPLE_ID='...'
+APPLE_APP_SPECIFIC_PASSWORD='...'
+APPLE_TEAM_ID='...'
+```
+
+Helper commands:
+
+```bash
+npm run notarization-status
+npm run notarization-log
+npm run notarization-staple
+```
+
+If Apple notarization is slow, the packaging flow now records pending notarization state instead of hard-failing the whole build immediately.
+
+## Notes
 
 * The `.xlsx` file must follow the structure of the `AT300-XLSX-TEMPLATE`, including the `PROC`, `TX`, and `RX` sheet names, the expected headers, and compatible data formats.
 * Incorrect or missing fields may cause rows to be rejected and skipped during parsing. Check the console output for the underlying validation errors.
 * Excelibur communicates via WebSocket — ensure the AT300 is reachable and configured to accept connections.
 * Timing and synchronization (e.g., PTP) must be configured separately by the user.
+
+## Desktop Release Naming
+
+For the current AT300 `2.9.x` compatibility line, use:
+
+* branch: `release-2.9`
+* tag: `excelibur-2.9.0`
+* GitHub Release title: `Excelibur 2.9`
+
+Keep the desktop app version in `package.json` aligned with the tag version. For example:
+
+* `package.json`: `2.9.0`
+* tag: `excelibur-2.9.0`
 
 
 <p align="center">
