@@ -76,7 +76,13 @@
           <label title="Choose the folder containing one or more Excelibur spreadsheets to process.">
             Input Directory
             <div class="path-picker">
-              <input name="input_dir" value="./input" />
+              <input
+                class="path-display"
+                name="input_dir"
+                value="./input"
+                readonly
+                aria-readonly="true"
+              />
               <button
                 type="button"
                 class="secondary browse-directory"
@@ -90,7 +96,13 @@
           <label title="Choose where generated settings.json files will be written.">
             Output Directory
             <div class="path-picker">
-              <input name="output_dir" value="./output" />
+              <input
+                class="path-display"
+                name="output_dir"
+                value="./output"
+                readonly
+                aria-readonly="true"
+              />
               <button
                 type="button"
                 class="secondary browse-directory"
@@ -185,8 +197,10 @@
         <td>
           <div class="path-picker">
             <input
-              class="deployment-workbook"
+              class="deployment-workbook path-display"
               placeholder="/path/to/configuration-spreadsheet.xlsx"
+              readonly
+              aria-readonly="true"
               title="Choose the Excelibur spreadsheet to apply to this AT300."
             />
             <button type="button" class="secondary browse-workbook" title="Browse for an Excelibur spreadsheet.">
@@ -1493,6 +1507,24 @@
         outline-color: var(--at300-cyan);
         border-color: var(--at300-cyan);
         background: #2a2a2a;
+      }
+
+      input[readonly] {
+        cursor: default;
+        color: var(--at300-text-soft);
+      }
+
+      .path-display {
+        direction: rtl;
+        overflow: hidden;
+        text-align: left;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .path-display::placeholder {
+        direction: ltr;
+        text-align: left;
       }
 
       input[aria-invalid="true"],

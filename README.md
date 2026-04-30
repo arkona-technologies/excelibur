@@ -70,10 +70,9 @@ The desktop app embeds the local Excelibur server and opens the UI directly in a
 
 Current desktop packaging status:
 
-* macOS packaging is set up as a signed `universal` build
+* macOS packaging is set up as a `universal` build for releases
 * one packaged app runs on both Intel and Apple Silicon Macs
 * GitHub Releases are configured as the update feed
-* notarization is wired in, with explicit `notarytool` submission/status handling
 
 ## Local Web UI / Development Server
 
@@ -93,7 +92,6 @@ Recommended workflow:
 
 * use `npm run server` while developing and debugging
 * use `npm run desktop` for user-facing testing
-* use `npm run desktop-pack` for release packaging
 
 ## CLI Usage
 
@@ -186,42 +184,6 @@ Behavior:
 * the deployment batch expects one shared AT300 release across the batch
 * the SDK is fetched once per release and reused
 * deployment currently runs one card at a time for predictable behavior
-
-## Packaging And Signing
-
-Build the macOS desktop installer:
-
-```bash
-npm run desktop-pack
-```
-
-This currently produces a macOS DMG in `./dist/`.
-
-Local signing/notarization setup uses:
-
-* `.env.local`
-  Local secrets such as the certificate password and Apple notarization credentials
-* `.local/ExceliburCertificate.p12`
-  Local signing certificate bundle
-
-Expected notarization-related values in `.env.local`:
-
-```bash
-EXCELIBUR_CERT_PASSWORD='...'
-APPLE_ID='...'
-APPLE_APP_SPECIFIC_PASSWORD='...'
-APPLE_TEAM_ID='...'
-```
-
-Helper commands:
-
-```bash
-npm run notarization-status
-npm run notarization-log
-npm run notarization-staple
-```
-
-If Apple notarization is slow, the packaging flow now records pending notarization state instead of hard-failing the whole build immediately.
 
 ## Notes
 

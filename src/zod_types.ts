@@ -52,7 +52,7 @@ export const SenderConfig = z.object({
   vlan_id: VLAN_ID,
   channel_count: ChannelCount,
   p_time: AudioFormat.nullable().default("p0_125"),
-  bit_depth: BitFormat.nullable().default("L16"),
+  bit_depth: BitFormat.nullable().default("L24"),
 });
 
 export const ReceiverConfig = z.object({

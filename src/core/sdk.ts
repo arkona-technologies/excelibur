@@ -45,8 +45,10 @@ export function derive_sdk_package_urls(url: string | URL): SdkPackageUrls {
   };
 }
 
-export async function read_installed_sdk_info(): Promise<InstalledSdkInfo[]> {
-  const package_json_dir = path.resolve(process.cwd(), "node_modules");
+export async function read_installed_sdk_info(
+  project_root = process.cwd(),
+): Promise<InstalledSdkInfo[]> {
+  const package_json_dir = path.resolve(project_root, "node_modules");
   return await Promise.all(
     SDK_PACKAGE_NAMES.map(async (name) => {
       const package_json_path = path.join(package_json_dir, name, "package.json");

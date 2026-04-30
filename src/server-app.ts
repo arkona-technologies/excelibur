@@ -50,12 +50,14 @@ type DesktopUpdateApi = {
 
 type BuildServerOptions = {
   desktop_update_api?: DesktopUpdateApi | null;
+  app_root?: string;
+  dependency_root?: string;
 };
 
 const exec_file = promisify(execFile);
 const module_dir = path.dirname(fileURLToPath(import.meta.url));
 const web_root = path.resolve(module_dir, "..", "web");
-const project_root = process.cwd();
+const default_app_root = path.resolve(module_dir, "..");
 
 function stream_to_string(stream: any): Promise<string> {
   const chunks: any[] = [];
@@ -172,6 +174,8 @@ async function apply_uploaded_workbook(req: any) {
 }
 
 export function buildServer(options?: BuildServerOptions) {
+  const app_root = options?.app_root ?? default_app_root;
+  const dependency_root = options?.dependency_root ?? app_root;
   const fastify = Fastify({
     bodyLimit: 1e6,
     caseSensitive: false,
@@ -407,7 +411,7 @@ export function buildServer(options?: BuildServerOptions) {
       const release = await detect_card_release(vm);
       return {
         release,
-        installed: await read_installed_sdk_info(),
+        installed: await read_installed_sdk_info(app_root),
         card_urls: derive_sdk_package_urls(process.env["URL"] ?? "ws://127.0.0.1"),
       };
     } finally {
@@ -439,7 +443,7 @@ export function buildServer(options?: BuildServerOptions) {
   fastify.post("/api/deploy-jobs", async (req: any, _res) => {
     const parsed = DeploymentJobFileSchema.parse(req.body);
     const normalized = normalize_deployment_job_file(
-      path.join(project_root, "deployment-jobs.web.json"),
+      path.join(app_root, "deployment-jobs.web.json"),
       parsed,
     );
     const job = queue_server_job({
@@ -448,6 +452,8 @@ export function buildServer(options?: BuildServerOptions) {
       resource_keys: Array.from(new Set(normalized.jobs.map((item) => item.target_url))),
       run: ({ log, progress }) =>
         run_deployment_jobs_with_sdk(normalized.jobs, {
+          app_root,
+          dependency_root,
           on_log: log,
           on_progress: progress,
         }),
@@ -466,10 +472,10 @@ export function buildServer(options?: BuildServerOptions) {
     };
     const input_dir = path.isAbsolute(body.input_dir)
       ? body.input_dir
-      : path.resolve(project_root, body.input_dir);
+      : path.resolve(app_root, body.input_dir);
     const output_dir = path.isAbsolute(body.output_dir)
       ? body.output_dir
-      : path.resolve(project_root, body.output_dir);
+      : path.resolve(app_root, body.output_dir);
     const job = queue_server_job({
       type: "batch-capture",
       summary: `Capture settings from ${body.url}`,
@@ -486,6 +492,8 @@ export function buildServer(options?: BuildServerOptions) {
             verbose: true,
           },
           {
+            app_root,
+            dependency_root,
             on_log: log,
             on_progress: progress,
           },
@@ -511,10 +519,18 @@ export function buildServer(options?: BuildServerOptions) {
 }
 
 export async function startServer(
-  options?: { port?: number; host?: string; desktop_update_api?: DesktopUpdateApi | null },
+  options?: {
+    port?: number;
+    host?: string;
+    desktop_update_api?: DesktopUpdateApi | null;
+    app_root?: string;
+    dependency_root?: string;
+  },
 ) {
   const fastify = buildServer({
     desktop_update_api: options?.desktop_update_api ?? null,
+    app_root: options?.app_root,
+    dependency_root: options?.dependency_root,
   });
   const port = options?.port ?? parseInt(process.env["PORT"] ?? "30000", 10);
   const host = options?.host ?? "0.0.0.0";

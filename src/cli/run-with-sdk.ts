@@ -38,6 +38,7 @@ async function main() {
 
   const [entry = "build/main.js", ...args] = process.argv.slice(2);
   const project_root = process.cwd();
+  const dependency_root = process.env["EXCELIBUR_DEPENDENCY_ROOT"];
   const vm = (await open_connection(new URL(url))) as VAPI.AT1130.Root;
   let runtime_dir = "";
   try {
@@ -45,6 +46,7 @@ async function main() {
     const cached_sdk = await prefetch_sdk_from_card({ url, release });
     runtime_dir = await prepare_runtime_from_cached_sdk({
       project_root,
+      dependency_root,
       cached_sdk,
     });
   } finally {

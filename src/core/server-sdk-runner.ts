@@ -11,6 +11,8 @@ import { prefetch_sdk_from_card } from "./sdk.js";
 import { prepare_runtime_from_cached_sdk } from "./runtime.js";
 
 type RunnerHooks = {
+  app_root?: string;
+  dependency_root?: string;
   on_log?: (message: string) => void;
   on_progress?: (percent: number, label: string) => void;
 };
@@ -78,14 +80,28 @@ async function run_node_process(options: {
   args: string[];
   env: NodeJS.ProcessEnv;
   cwd: string;
+  dependency_root?: string;
   on_log?: (message: string) => void;
   on_progress?: (percent: number, label: string) => void;
   suppress_stdout_non_progress?: boolean;
 }) {
   await new Promise<void>((resolve, reject) => {
+    const dependency_node_modules = options.dependency_root
+      ? path.join(options.dependency_root, "node_modules")
+      : "";
     const child = spawn(process.execPath, options.args, {
       cwd: options.cwd,
-      env: options.env,
+      env: {
+        ...options.env,
+        ELECTRON_RUN_AS_NODE: "1",
+        ...(options.dependency_root
+          ? { EXCELIBUR_DEPENDENCY_ROOT: options.dependency_root }
+          : {}),
+        NODE_PATH: [
+          dependency_node_modules,
+          options.env["NODE_PATH"],
+        ].filter(Boolean).join(path.delimiter),
+      },
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -189,7 +205,8 @@ async function prepare_shared_deployment_runtime(
     release,
   });
   const runtime_dir = await prepare_runtime_from_cached_sdk({
-    project_root: process.cwd(),
+    project_root: hooks.app_root ?? process.cwd(),
+    dependency_root: hooks.dependency_root,
     cached_sdk,
   });
   hooks.on_log?.(`Prepared shared runtime for release ${release}`);
@@ -204,7 +221,8 @@ export async function run_batch_capture_with_sdk(
   hooks.on_progress?.(0, "starting batch capture");
   await run_node_process({
     args: ["build/cli/run-with-sdk.js", "build/cli/capture-settings.js"],
-    cwd: process.cwd(),
+    cwd: hooks.app_root ?? process.cwd(),
+    dependency_root: hooks.dependency_root,
     env: {
       ...process.env,
       URL: options.url,
@@ -254,6 +272,7 @@ export async function run_deployment_jobs_with_sdk(
     await run_node_process({
       args: [runtime_entry],
       cwd: runtime_dir,
+      dependency_root: hooks.dependency_root,
       env: {
         ...process.env,
         URL: job.target_url,

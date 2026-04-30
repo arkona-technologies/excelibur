@@ -5,7 +5,16 @@ const { autoUpdater } = require("electron-updater");
 let mainWindow = null;
 let serverHandle = null;
 let manualUpdateCheckInProgress = false;
-const windowIcon = path.join(__dirname, "..", "build-resources", "excelibur-square.png");
+const appRoot = app.isPackaged
+  ? path.join(process.resourcesPath, "app.asar.unpacked")
+  : path.resolve(__dirname, "..");
+const dependencyRoot = app.isPackaged
+  ? path.join(process.resourcesPath, "app.asar")
+  : appRoot;
+const windowIcon =
+  app.isPackaged && process.platform === "linux"
+    ? path.join(process.resourcesPath, "app.asar.unpacked", "build-resources", "icons", "512x512.png")
+    : path.join(__dirname, "..", "build-resources", "excelibur-square.png");
 const updateState = {
   supported: false,
   status: "idle",
@@ -170,6 +179,8 @@ async function ensureServer() {
     serverHandle = await startServer({
       host: "127.0.0.1",
       port: Number(process.env.PORT || "0"),
+      app_root: appRoot,
+      dependency_root: dependencyRoot,
       desktop_update_api: {
         get_update_state: getUpdateState,
         check_for_updates: checkForUpdates,
@@ -201,6 +212,30 @@ async function createMainWindow() {
 
   mainWindow.on("closed", () => {
     mainWindow = null;
+  });
+
+  mainWindow.webContents.on("context-menu", (_event, params) => {
+    const items = [];
+
+    if (params.isEditable) {
+      items.push(
+        { role: "cut", enabled: params.editFlags.canCut },
+        { role: "copy", enabled: params.editFlags.canCopy },
+        { role: "paste", enabled: params.editFlags.canPaste },
+        { type: "separator" },
+        { role: "selectAll", enabled: params.editFlags.canSelectAll },
+      );
+    } else if (params.selectionText) {
+      items.push(
+        { role: "copy", enabled: params.editFlags.canCopy },
+        { type: "separator" },
+        { role: "selectAll", enabled: params.editFlags.canSelectAll },
+      );
+    }
+
+    if (items.length > 0) {
+      Menu.buildFromTemplate(items).popup({ window: mainWindow });
+    }
   });
 
   await mainWindow.loadURL(startUrl);
