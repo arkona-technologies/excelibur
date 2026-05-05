@@ -19,7 +19,13 @@ async function prepare_madi_ins(
   madi_ins: z.infer<typeof ProcessingChainConfig>[],
   vm: VAPI.AT1130.Root,
 ) {
+  const is_reconfig = await is_reconfigurable_io_board(vm);
   for (const conf of madi_ins) {
+    if (is_reconfig) {
+      await vm.i_o_module?.configuration
+        .row(conf.source_id)
+        .direction.write("Input");
+    }
     await vm.i_o_module?.input.row(conf.source_id).mode.command.write("MADI");
     await vm.i_o_module?.input.row(conf.source_id).audio_timing.command.write({
       variant: "SynchronousOrSyntonous",
@@ -31,40 +37,33 @@ async function prepare_madi_outs(
   madi_outs: z.infer<typeof ProcessingChainConfig>[],
   vm: VAPI.AT1130.Root,
 ) {
-  const is_reconfig = await vm.system.io_board.info.type
-    .read()
-    .then(
-      (b) =>
-        b != null &&
-        (b == "IO_MSC_v2" ||
-          b == "IO_MSC_v2_GD32" ||
-          b === "IO_BNC_16bidi" ||
-          b === "IO_BNC_16bidi_GD32"),
-    );
+  const is_reconfig = await is_reconfigurable_io_board(vm);
   for (const conf of madi_outs) {
     if (is_reconfig) {
       await vm.i_o_module?.configuration
-        .row(conf.source_id)
+        .row(conf.output_id)
         .direction.write("Output");
     }
     await vm.i_o_module?.output.row(conf.output_id).mode.command.write("MADI");
   }
 }
 
+async function is_reconfigurable_io_board(vm: VAPI.AT1130.Root) {
+  return await vm.system.io_board.info.type.read().then(
+    (b) =>
+      b != null &&
+      (b == "IO_MSC_v2" ||
+        b == "IO_MSC_v2_GD32" ||
+        b === "IO_BNC_16bidi" ||
+        b === "IO_BNC_16bidi_GD32"),
+  );
+}
+
 async function prepare_sdi_outs(
   sdi_outs: z.infer<typeof ProcessingChainConfig>[],
   vm: VAPI.AT1130.Root,
 ) {
-  const is_reconfig = await vm.system.io_board.info.type
-    .read()
-    .then(
-      (b) =>
-        b != null &&
-        (b == "IO_MSC_v2" ||
-          b == "IO_MSC_v2_GD32" ||
-          b === "IO_BNC_16bidi" ||
-          b === "IO_BNC_16bidi_GD32"),
-    );
+  const is_reconfig = await is_reconfigurable_io_board(vm);
   for (const conf of sdi_outs) {
     if (is_reconfig) {
       await vm.i_o_module?.configuration
@@ -79,16 +78,7 @@ async function prepare_sdi_ins(
   sdi_ins: z.infer<typeof ProcessingChainConfig>[],
   vm: VAPI.AT1130.Root,
 ) {
-  const is_reconfig = await vm.system.io_board.info.type
-    .read()
-    .then(
-      (b) =>
-        b != null &&
-        (b == "IO_MSC_v2" ||
-          b == "IO_MSC_v2_GD32" ||
-          b === "IO_BNC_16bidi" ||
-          b === "IO_BNC_16bidi_GD32"),
-    );
+  const is_reconfig = await is_reconfigurable_io_board(vm);
   for (const conf of sdi_ins) {
     if (is_reconfig) {
       await vm.i_o_module?.configuration
@@ -590,14 +580,14 @@ async function setup_processing_chain_audio(
   const find_source = () => {
     switch (config.source_type) {
       case "PLAYER-AUDIO":
-        return vm.re_play!.audio.players.row(config.output_id).output.audio;
+        return vm.re_play!.audio.players.row(config.source_id).output.audio;
       case "IP-AUDIO":
-        return vm.r_t_p_receiver!.audio_receivers.row(config.output_id)
+        return vm.r_t_p_receiver!.audio_receivers.row(config.source_id)
           .media_specific.output.audio;
       case "MADI":
-        return vm.i_o_module?.input.row(config.output_id).madi.output;
+        return vm.i_o_module?.input.row(config.source_id).madi.output;
       case "SDI":
-        return vm.i_o_module?.input.row(config.output_id).sdi.output.audio;
+        return vm.i_o_module?.input.row(config.source_id).sdi.output.audio;
       case "VOID":
         return null;
       case "SDI2SI":
