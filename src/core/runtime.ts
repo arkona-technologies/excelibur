@@ -1,4 +1,5 @@
 import fs from "fs/promises";
+import os from "os";
 import path from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
@@ -17,7 +18,11 @@ const RUNTIME_PACKAGE_NAMES = new Set([
 ]);
 
 function runtime_root() {
-  return path.join(process.env["HOME"] ?? process.cwd(), ".excelibur", "runtime");
+  const base_dir = process.env["EXCELIBUR_HOME"]
+    ?? (process.platform === "win32"
+      ? process.env["LOCALAPPDATA"] ?? process.env["APPDATA"] ?? os.homedir()
+      : os.homedir());
+  return path.join(base_dir, ".excelibur", "runtime");
 }
 
 function runtime_dir_for_release(release: string) {
@@ -51,10 +56,16 @@ async function symlink_dependency_tree(project_root: string, runtime_dir: string
   async function materialize_dependency(source: string, target: string, type: "dir" | "file") {
     const packaged_source = await resolve_packaged_source(source);
     await fs.rm(target, { recursive: true, force: true });
-    if (packaged_source.copy) {
+    if (packaged_source.copy || process.platform === "win32") {
       await fs.cp(packaged_source.source, target, { recursive: true });
     } else {
-      await fs.symlink(packaged_source.source, target, type);
+      await fs.symlink(packaged_source.source, target, type).catch(async (error) => {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== "EPERM" && code !== "EACCES") {
+          throw error;
+        }
+        await fs.cp(packaged_source.source, target, { recursive: true });
+      });
     }
   }
 
