@@ -49,14 +49,72 @@ async function prepare_madi_outs(
 }
 
 async function is_reconfigurable_io_board(vm: VAPI.AT1130.Root) {
-  return await vm.system.io_board.info.type.read().then(
-    (b) =>
-      b != null &&
-      (b == "IO_MSC_v2" ||
-        b == "IO_MSC_v2_GD32" ||
-        b === "IO_BNC_16bidi" ||
-        b === "IO_BNC_16bidi_GD32"),
+  const board_type = await vm.system.io_board.info.type.read();
+  return board_type != null && reconfigurable_bnc_capacity(board_type) != null;
+}
+
+function reconfigurable_bnc_capacity(board_type: VAPI.System.IOBoard) {
+  switch (board_type) {
+    case "IO_BNC_2_2_16bidi":
+    case "IO_BNC_16bidi":
+    case "IO_BNC_16bidi_GD32":
+      return 16;
+    case "IO_MSC_v2":
+    case "IO_MSC_v2_GD32":
+      return 10;
+    default:
+      return null;
+  }
+}
+
+function sorted_numbers(values: Set<number>) {
+  return Array.from(values).sort((a, b) => a - b);
+}
+
+async function validate_physical_io_capacity(
+  config: z.infer<typeof ProcessingChainConfig>[],
+  vm: VAPI.AT1130.Root,
+) {
+  const board_type = await vm.system.io_board.info.type.read();
+  if (!board_type) {
+    return;
+  }
+
+  const bnc_capacity = reconfigurable_bnc_capacity(board_type);
+  if (bnc_capacity == null) {
+    return;
+  }
+
+  const physical_inputs = new Set(
+    config
+      .filter((c) => c.source_type === "SDI" || c.source_type === "MADI")
+      .map((c) => c.source_id),
   );
+  const physical_outputs = new Set(
+    config
+      .filter((c) => c.output_type === "SDI" || c.output_type === "MADI")
+      .map((c) => c.output_id),
+  );
+  const shared_connectors = sorted_numbers(
+    new Set(
+      Array.from(physical_inputs).filter((id) => physical_outputs.has(id)),
+    ),
+  );
+  const all_connectors = new Set([...physical_inputs, ...physical_outputs]);
+  const highest_connector = Math.max(-1, ...all_connectors);
+
+  if (shared_connectors.length > 0) {
+    throw new Error(
+      `Workbook is incompatible with rear-plate ${board_type}: bidirectional BNC connector(s) ${shared_connectors.join(
+        ", ",
+      )} are requested as both SDI/MADI inputs and SDI/MADI outputs.`,
+    );
+  }
+  if (all_connectors.size > bnc_capacity || highest_connector >= bnc_capacity) {
+    throw new Error(
+      `Workbook is incompatible with rear-plate ${board_type}: it requests ${all_connectors.size} distinct SDI/MADI connector(s) up to index ${highest_connector}, but this rear-plate has ${bnc_capacity} configurable BNC connector(s).`,
+    );
+  }
 }
 
 async function prepare_sdi_outs(
@@ -718,6 +776,7 @@ export async function setup_processing_chains(
 
   // set up necessary scaffolding for routing only; no  addresses/interfaces etc are set up!
   on_progress?.(0, config.length + 1, "processors preparing");
+  await validate_physical_io_capacity(config, vm);
   await prepare_audio_rx(rtp_audio_ins, vm);
   await prepare_video_rx(rtp_video_ins, vm);
   await prepare_video_players(video_players, vm);
