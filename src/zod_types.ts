@@ -28,7 +28,7 @@ export const ChannelCount = z
 
 export const VLAN_ID = z
   .string()
-  .optional()
+  .nullish()
   .transform((id) => {
     if (!id || !!!id) return null;
     const maybe_num = parseInt(id);
