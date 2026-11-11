@@ -1,6 +1,6 @@
 {
   "name": "excelibur",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "description": "Excelibur desktop tooling for generating and applying AT300 configurations.",
   "author": "Arkona Technologies",
   "homepage": "https://github.com/arkona-technologies/excelibur",
@@ -26,10 +26,11 @@
     "deploy-jobs-with-sdk": "npx tsc && node build/cli/run-with-sdk.js build/cli/deploy-jobs.js",
     "server": "npx tsc && node build/server.js",
     "desktop": "npx tsc && node desktop/launch-electron.cjs",
-    "desktop-pack-linux": "npx tsc && npx electron-builder --linux AppImage deb --x64 -c.npmRebuild=false",
-    "desktop-pack-win": "npx tsc && npx electron-builder --win nsis --x64 -c.npmRebuild=false",
+    "desktop-pack-linux": "npx tsc && npx electron-builder --linux AppImage deb --x64 -c.npmRebuild=false --publish never",
+    "desktop-pack-win": "npx tsc && npx electron-builder --win nsis --x64 -c.npmRebuild=false --publish never",
     "build-icons": "npx icon-gen -i build-resources/excelibur-square.png -o build-resources --icns --ico",
-    "pack": "tar -czf /tmp/$npm_package_name.tar.gz *"
+    "pack": "tar -czf /tmp/$npm_package_name.tar.gz *",
+    "desktop-pack-mac": "npx tsc && npx electron-builder --mac dmg zip --universal -c.npmRebuild=false --publish never"
   },
   "devDependencies": {
     "@swc/core": "^1.3.59",
@@ -101,6 +102,12 @@
       "target": [
         {
           "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
           "arch": [
             "universal"
           ]
