@@ -48,7 +48,13 @@ type DesktopUpdateApi = {
   install_update: () => Promise<unknown> | unknown;
 };
 
+type DesktopFileDialogs = {
+  pick_directory: (prompt: string) => Promise<string>;
+  pick_workbooks: (prompt: string) => Promise<string[]>;
+};
+
 type BuildServerOptions = {
+  desktop_file_dialogs?: DesktopFileDialogs;
   desktop_update_api?: DesktopUpdateApi | null;
   app_root?: string;
   dependency_root?: string;
@@ -281,7 +287,7 @@ export function buildServer(options?: BuildServerOptions) {
         : "Choose a folder";
 
     try {
-      return { ok: true, path: await pick_directory_with_dialog(prompt) };
+      return { ok: true, path: await (options?.desktop_file_dialogs?.pick_directory ?? pick_directory_with_dialog)(prompt) };
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Folder selection cancelled";
@@ -297,7 +303,7 @@ export function buildServer(options?: BuildServerOptions) {
         : "Choose one or more workbook files";
 
     try {
-      return { ok: true, paths: await pick_workbooks_with_dialog(prompt) };
+      return { ok: true, paths: await (options?.desktop_file_dialogs?.pick_workbooks ?? pick_workbooks_with_dialog)(prompt) };
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Workbook selection cancelled";
@@ -520,6 +526,7 @@ export function buildServer(options?: BuildServerOptions) {
 
 export async function startServer(
   options?: {
+    desktop_file_dialogs?: DesktopFileDialogs;
     port?: number;
     host?: string;
     desktop_update_api?: DesktopUpdateApi | null;
@@ -528,6 +535,7 @@ export async function startServer(
   },
 ) {
   const fastify = buildServer({
+    desktop_file_dialogs: options?.desktop_file_dialogs,
     desktop_update_api: options?.desktop_update_api ?? null,
     app_root: options?.app_root,
     dependency_root: options?.dependency_root,

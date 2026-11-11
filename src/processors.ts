@@ -279,8 +279,7 @@ async function prepare_video_rx(
         st2110_20_caliber: "ST2110_upto_3G",
         supports_2110_40: true,
         supports_uhd_sample_interleaved: false,
-      })
-      .catch((e) => console.log(e));
+      });
     // await rx.row_name.command.write(shorten_label(conf.name));
   }
 }
@@ -302,8 +301,7 @@ async function prepare_audio_rx(
         channel_capacity: 16,
         payload_limit: "AtMost1984Bytes",
         supports_clean_switching: true,
-      })
-      .catch((e) => console.log(e));
+      });
     // await rx.row_name.command.write(shorten_label(conf.name));
   }
 }
@@ -432,6 +430,7 @@ async function setup_processing_chain_video(
         `[${vm.raw.identify()}] ${config.name}: CC3D Setup failed: `,
         e,
       );
+      throw e;
     }
   }
 
@@ -472,12 +471,7 @@ async function setup_processing_chain_video(
         .write({
           variant: "Frames",
           value: { frames: config.delay_frames },
-        })
-        .catch((_e) =>
-          console.log(
-            `[${vm.raw.identify()}] video delay refuses to accept delay setting of ${config.delay_frames?.toString()} ; contact support via clemens@arkonatech.com`,
-          ),
-        );
+        });
       await set_vsrc(target.command, out!.video);
       target = delay?.inputs.row(0).v_src;
     } catch (e) {
@@ -485,6 +479,7 @@ async function setup_processing_chain_video(
         `[${vm.raw.identify()}] ${config.name}: Delay Setup failed: `,
         e,
       );
+      throw e;
     }
   }
 
@@ -572,14 +567,12 @@ async function setup_processing_chain_audio(
       .write(`${shorten_label(config.name)}.DLY`)
       .catch((_) => {});
     await delay?.capabilities.num_channels.command
-      .write(config.channel_count)
-      .catch((_) => {});
+      .write(config.channel_count);
     await delay?.capabilities.capacity.command
       .write({
         variant: "Time",
         value: { time: new Duration(config.delay_audio, "ms") },
-      })
-      .catch((_) => {});
+      });
     await delay?.num_outputs.write(1);
     await delay?.outputs
       .row(0)
@@ -700,9 +693,7 @@ async function setup_processing_chain(
   );
   if (config.source_type == "VOID") {
     if (config.flow_type == "Video" || config.output_type == "IP-VIDEO") {
-      await setup_processing_chain_video(vm, config).catch((e) => {
-        console.log(e);
-      });
+      await setup_processing_chain_video(vm, config);
       return;
     }
     if (
@@ -710,9 +701,7 @@ async function setup_processing_chain(
       config.output_type == "IP-AUDIO" ||
       config.output_type == "MADI"
     ) {
-      await setup_processing_chain_audio(vm, config).catch((e) => {
-        console.log(e);
-      });
+      await setup_processing_chain_audio(vm, config);
       return;
     }
   }
@@ -721,9 +710,7 @@ async function setup_processing_chain(
     config.source_type == "PLAYER-VIDEO" ||
     config.flow_type === "Video"
   ) {
-    await setup_processing_chain_video(vm, config).catch((e) => {
-      console.log(e);
-    });
+    await setup_processing_chain_video(vm, config);
     return;
   }
   if (
@@ -731,9 +718,7 @@ async function setup_processing_chain(
     config.source_type == "PLAYER-AUDIO" ||
     config.flow_type === "Audio"
   ) {
-    await setup_processing_chain_audio(vm, config).catch((e) => {
-      console.log(e);
-    });
+    await setup_processing_chain_audio(vm, config);
     return;
   }
 }
@@ -868,7 +853,11 @@ export async function setup_processing_chains(
 
   for (const [index, conf] of config.entries()) {
     on_progress?.(index + 1, config.length + 1, `processors ${conf.name}`);
-    await setup_processing_chain(vm, conf);
+    try {
+      await setup_processing_chain(vm, conf);
+    } catch (error) {
+      throw new Error(`Processing chain "${conf.name}" failed: ${error instanceof Error ? error.message : String(error)}. Configuration may be partially applied.`);
+    }
   }
 
   on_progress?.(config.length + 1, config.length + 1, "processors complete");

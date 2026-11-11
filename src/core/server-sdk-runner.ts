@@ -108,12 +108,12 @@ async function run_node_process(options: {
     let settled = false;
 
     const terminate_child = (signal: NodeJS.Signals = "SIGTERM") => {
-      if (child.exitCode !== null || child.killed) {
+      if (child.exitCode !== null || child.signalCode !== null) {
         return;
       }
       child.kill(signal);
       setTimeout(() => {
-        if (child.exitCode === null && !child.killed) {
+        if (child.exitCode === null && child.signalCode === null) {
           child.kill("SIGKILL");
         }
       }, 2000).unref();
@@ -218,6 +218,10 @@ export async function run_batch_capture_with_sdk(
   options: BatchCaptureOptions,
   hooks: RunnerHooks = {},
 ) {
+  const wait_seconds = options.wait_seconds_before_capture ?? 5;
+  if (!Number.isInteger(wait_seconds) || wait_seconds < 0) {
+    throw new Error("Capture wait must be a nonnegative integer number of seconds");
+  }
   hooks.on_progress?.(0, "starting batch capture");
   await run_node_process({
     args: ["build/cli/run-with-sdk.js", "build/cli/capture-settings.js"],
@@ -229,6 +233,7 @@ export async function run_batch_capture_with_sdk(
       INPUT_DIR: options.input_dir,
       OUTPUT_DIR: options.output_dir,
       SETTINGS_URL: options.settings_url,
+      WAIT_SECONDS_BEFORE_CAPTURE: String(wait_seconds),
       FORCE: options.force ? "1" : "0",
       VERBOSE: options.verbose ? "1" : "0",
       EXCELIBUR_PROGRESS: "1",

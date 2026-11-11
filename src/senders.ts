@@ -1,7 +1,7 @@
 import * as VAPI from "vapi";
 import { enforce, enforce_nonnull } from "vscript";
 import { z } from "zod";
-import { find_best_vifc } from "./utils.js";
+import { sender_interfaces, sender_interface_config } from "./core/network-config.js";
 import { SenderConfig } from "./zod_types.js";
 import assert from "assert";
 import { StepProgressReporter } from "./progress.js";
@@ -25,6 +25,7 @@ export async function apply_senders_config(
     console.log(
       `[${vm.raw.identify()}] Applying sender-config @${conf.stream_type}/${conf.id} with label ${conf.label}`,
     );
+    const interfaces = await sender_interfaces(vm, sender_interface_config(conf, config));
     const get_transmitter = () => {
       switch (conf.stream_type) {
         case "2110-20":
@@ -45,31 +46,16 @@ export async function apply_senders_config(
     };
     const tx = enforce_nonnull(await get_transmitter());
     let session = await tx.generic.hosting_session.status.read();
-    if (!(await tx.generic.hosting_session.status.read())) {
-      session =
-        (await find_existing_session(conf.label)) ??
-        (await vm.r_t_p_transmitter!.sessions.create_row({
-          name: `${conf.label}`,
-        }));
-      await session?.interfaces.command.write({
-        primary: conf.primary_destination_address
-          ? await find_best_vifc(
-              vm.network_interfaces.ports.row(0),
-              conf.vlan_id,
-            )
-          : null,
-        secondary: conf.secondary_destination_address
-          ? await find_best_vifc(
-              vm.network_interfaces.ports.row(1),
-              conf.vlan_id,
-            )
-          : null,
-      });
-      await tx.generic.hosting_session.command.write(session);
+    const needs_attachment = !session;
+    if (!session) {
+      session = (await find_existing_session(conf.label)) ??
+        (await vm.r_t_p_transmitter!.sessions.create_row({ name: conf.label }));
     }
     enforce(!!session);
-    await tx.row_name.command.write(conf.label);
     await session.active.command.write(false);
+    await session.interfaces.command.write(interfaces);
+    if (needs_attachment) await tx.generic.hosting_session.command.write(session);
+    await tx.row_name.command.write(conf.label);
     const get_ip_config = () => {
       switch (conf.stream_type) {
         case "2022-6":

@@ -2,7 +2,7 @@ import * as VAPI from "vapi";
 import { z } from "zod";
 import { ReceiverConfig } from "./zod_types.js";
 import { Duration, enforce, enforce_nonnull, Timestamp } from "vscript";
-import { find_best_vifc } from "./utils.js";
+import { receiver_interfaces } from "./core/network-config.js";
 import { lock_to_genlock } from "vutil/rtp_receiver.js";
 import { StepProgressReporter } from "./progress.js";
 
@@ -34,6 +34,7 @@ export async function apply_receivers_config(
     console.log(
       `[${vm.raw.identify()}] Applying receiver-config @${conf.stream_type}/${conf.id} with label ${conf.label}`,
     );
+    const interfaces = await receiver_interfaces(vm, conf);
     const get_receiver = () => {
       switch (conf.stream_type) {
         case "2110-20":
@@ -58,26 +59,15 @@ export async function apply_receivers_config(
     });
     await rx.generic.initiate_readout_on.command.write("FirstStreamPresent");
     let session = await rx.generic.hosting_session.status.read();
+    const needs_attachment = !session;
     if (!session) {
-      session =
-        (await find_existing_session(conf.label)) ??
-        (await vm.r_t_p_receiver!.sessions.create_row({
-          name: `${conf.label}`,
-        }));
-      await session?.interfaces.command.write({
-        primary: await find_best_vifc(
-          vm.network_interfaces.ports.row(0),
-          conf.vlan_id,
-        ),
-        secondary: await find_best_vifc(
-          vm.network_interfaces.ports.row(1),
-          conf.vlan_id,
-        ),
-      });
-      await rx.generic.hosting_session.command.write(session);
+      session = (await find_existing_session(conf.label)) ??
+        (await vm.r_t_p_receiver!.sessions.create_row({ name: conf.label }));
     }
     enforce(!!session);
     await session.active.command.write(false);
+    await session.interfaces.command.write(interfaces);
+    if (needs_attachment) await rx.generic.hosting_session.command.write(session);
     if (conf.switch_type == "Patch") {
       await session.switch_type.command.write({
         variant: conf.switch_type,
@@ -91,7 +81,7 @@ export async function apply_receivers_config(
     }
 
     await rx.generic.timing.safety_margin.command.write(
-      new Duration(500, "us"),
+      new Duration(4, "ms"),
     );
     await rx.media_specific.capabilities.command.write(null);
     if (rx instanceof VAPI.AT1130.RTPReceiver.VideoReceiverAsNamedTableRow) {
@@ -108,8 +98,7 @@ export async function apply_receivers_config(
               conf.stream_type === "2110-22" ? "JPEG_XS_singlelink_uhd" : null,
             st2042_2_caliber:
               conf.stream_type === "2042-20" ? "ST2042_2_singlelink_uhd" : null,
-          })
-          .catch((_e) => console.log(`Error setting up ${conf.label}`));
+          });
       } else {
         await rx.media_specific.capabilities.command
           .write({
@@ -123,8 +112,7 @@ export async function apply_receivers_config(
               conf.stream_type == "2110-22" ? "JPEG_XS_upto_3G" : null,
             st2042_2_caliber:
               conf.stream_type == "2042-20" ? "ST2042_2_upto_3G" : null,
-          })
-          .catch((_e) => console.log(`Error setting up ${conf.label}`));
+          });
       }
 
       await session.active.command.write(false);
@@ -147,8 +135,7 @@ export async function apply_receivers_config(
           read_speed: lock_to_genlock(rx),
           channel_capacity: conf.channel_capacity,
           supports_clean_switching: true,
-        })
-        .catch((_e) => console.log(`Error setting up ${conf.label}`));
+        });
       const maybe_foregin_receiver = vm.r_t_p_receiver?.video_receivers.row(
         conf.id,
       );
@@ -169,7 +156,7 @@ export async function apply_receivers_config(
       } else {
         await rx.generic.timing.target.command.write({
           variant: "IngressPlusX",
-          value: { read_delay: new Duration(2, "ms") },
+          value: { read_delay: new Duration(4, "ms") },
         });
       }
     }

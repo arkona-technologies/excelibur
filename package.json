@@ -15,6 +15,7 @@
   "main": "desktop/main.cjs",
   "type": "module",
   "scripts": {
+    "test": "tsc && node --experimental-test-module-mocks --test tests/*.test.mjs",
     "clean": "rm -rf node_modules && (rm package-lock.json || true )&& rm -rf build",
     "setup": "(npm run clean || true) && npm install --legacy-peer-deps && tsc",
     "capture-settings": "./scripts/capture-settings.sh",

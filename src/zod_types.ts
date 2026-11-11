@@ -11,13 +11,23 @@ export const StreamType = z.enum([
   "2022-6",
   "2110-22",
 ]);
-export const SwitchType = z
-  .enum(["Patch", "MakeBeforeBreak", "BreakBeforeMake"])
-  .default("Patch");
+const blank_as_undefined = (value: unknown) => value == null || value === "" ? undefined : value;
+
+export const SwitchType = z.preprocess(blank_as_undefined,
+  z.enum(["Patch", "MakeBeforeBreak", "BreakBeforeMake"]).default("Patch"));
+
+const BooleanText = z.preprocess((value) => {
+  if (value == null || value === "") return undefined;
+  if (typeof value === "string") {
+    if (value.trim().toLowerCase() === "true") return true;
+    if (value.trim().toLowerCase() === "false") return false;
+  }
+  return value;
+}, z.boolean().default(true));
 
 export const ChannelCount = z
   .string()
-  .optional()
+  .nullish()
   .transform((maybe_str) => {
     if (!!!maybe_str) return 16;
     const mabye_number = parseInt(maybe_str);
@@ -59,12 +69,12 @@ export const ReceiverConfig = z.object({
   id: z.coerce.number(),
   label: z.string(),
   stream_type: StreamType, // eh... but oh well
-  sync: z.coerce.boolean().default(true),
+  sync: BooleanText,
   uhd: z
     .string()
     .refine((v) => v.toLowerCase() === "true" || v.toLowerCase() === "false")
     .transform((v) => v.toLowerCase() === "true"),
-  channel_capacity: z.coerce.number().optional().default(16),
+  channel_capacity: z.preprocess(blank_as_undefined, z.coerce.number().int().positive().default(16)),
   switch_type: SwitchType,
   vlan_id: VLAN_ID,
 });
@@ -102,13 +112,13 @@ export const ProcessingChainConfig = z.object({
     .transform((maybe_str) => {
       return maybe_str ? maybe_str : "";
     }),
-  flow_type: z.enum(["Video", "Audio"]).optional().default("Video"),
+  flow_type: z.preprocess(blank_as_undefined, z.enum(["Video", "Audio"]).default("Video")),
   source_type: SourceType,
   video_format: VideoFormat.nullable().default(null),
   source_id: z.coerce.number().int("source_id needs to be an integer!"),
   lut_name: z.string().nullable().default(null),
   delay_frames: z.coerce.number().int().nullable().default(null),
-  samplerate_converter: z.string().optional().transform((bool_str) => {
+  samplerate_converter: z.string().nullish().transform((bool_str) => {
     return bool_str?.toLowerCase().trim() == "true";
   }),
   delay_audio: z.coerce.number().int().nullable().default(null),

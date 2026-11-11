@@ -14,7 +14,9 @@ These configurations typically include:
 * Processing block parameters
 * Network I/O and stream mappings
 
-**Important:** Excelibur does *not* manage or configure timing parameters such as **PTP** or related synchronization settings. These must be set up separately by the end user.
+**Important:** Configure card-level PTP, clock sources, and genlock before deployment. Excelibur preserves those settings, while configuring receiver timing according to the spreadsheet’s `sync` field (see below).
+
+See [CHANGELOG.md](CHANGELOG.md) for changes awaiting the next release.
 
 Current operator workflows:
 
@@ -26,7 +28,7 @@ Current operator workflows:
 
 ## Prerequisites
 
-* **Node.js** (version ≥ 18)
+* **Node.js** (version ≥ 24; required by current AT300 SDKs)
 * **npm** (bundled with Node.js)
 * A valid `.xlsx` configuration file that follows the `AT300-XLSX-TEMPLATE` structure
 * Network reachability to the target AT300 card(s)
@@ -79,7 +81,7 @@ Current desktop packaging status:
 For day-to-day UI and logic development, the web server workflow is still useful and usually faster to iterate on than the packaged Electron app:
 
 ```bash
-npm run server
+PORT=30001 npm run server
 ```
 
 Then open:
@@ -149,7 +151,7 @@ This script will:
 * skip any workbook whose matching `.json` output already exists, so reruns resume from failed items
 * reprocess all workbooks when `--force` or `FORCE=1` is used
 * hide the noisy underlying node/configuration logs by default, and restore the old raw output with `--verbose` or `VERBOSE=1`
-* wait 5 seconds after each configuration completes
+* wait 5 seconds by default after each configuration completes, or the configured capture delay
 * download `settings.json` from the card specified by `URL` (or from `SETTINGS_URL` if it is set)
 * sanitize the downloaded JSON by removing `node_id_status` and `node_id_command` to strip NMOS UUID-related metadata
 * save the result as a `.json` file matching the workbook name
@@ -164,6 +166,7 @@ Optional environment variables:
 | `OUTPUT_DIR`   | Directory where the downloaded `.json` files are written. Defaults to `./output` |
 | `FORCE`        | Set to `1` to process all workbooks even if matching `.json` files already exist. Defaults to `0` |
 | `VERBOSE`      | Set to `1` to show the full underlying node/configuration output. Defaults to `0` |
+| `WAIT_SECONDS_BEFORE_CAPTURE` | Nonnegative integer settling time before downloading settings. Defaults to `5`; `0` disables the wait. |
 | `SETTINGS_URL` | Override the settings download URL. Defaults to `<URL converted>/settings.json` |
 
 The JSON sanitization step removes the `node_id_status` and `node_id_command` sections after each download. This is done to sanitize the NMOS UUID content in the captured `settings.json` snapshots before they are kept for comparison or reuse.
@@ -185,12 +188,35 @@ Behavior:
 * the SDK is fetched once per release and reused
 * deployment currently runs one card at a time for predictable behavior
 
+## Receiver timing
+
+The RX sheet’s `sync` field accepts `true` or `false` (case-insensitive). A blank
+or omitted value defaults to `true`. Explicit `false` values are now honored;
+older builds incorrectly treated the text `false` as enabled.
+
+| Receiver | `sync` | Timing behavior |
+| --- | --- | --- |
+| Video | `false` | IngressPlusX, 4 ms read delay |
+| Video | `true` | FrameStart aligned to the card’s PTP Clock |
+| Audio | `false` | IngressPlusX, 4 ms read delay |
+| Audio | `true` | Follow the video receiver with the same ID using ForeignReadDelay and zero extra delay; fall back to IngressPlusX at 4 ms if that video receiver does not exist |
+
+Both audio and video receivers use a **4 ms safety margin**, matching the AT300
+2.9.1648 GUI default. Safety margin and read delay are separate parameters.
+Excelibur does not switch the card to freerun or recreate its timing sources.
+
+Blank `channel_count` cells default to 16. Receiver `channel_capacity` defaults
+to 16 and accepts positive integers; Excelibur does not restrict it to the GUI’s
+16/32/48/64/80 presets. Firmware determines supported capacities.
+
 ## Notes
 
 * The `.xlsx` file must follow the structure of the `AT300-XLSX-TEMPLATE`, including the `PROC`, `TX`, and `RX` sheet names, the expected headers, and compatible data formats.
-* Incorrect or missing fields may cause rows to be rejected and skipped during parsing. Check the console output for the underlying validation errors.
+* Invalid populated rows stop deployment before card configuration is changed; errors identify the sheet, row, and field. Blank rows are ignored.
+* Blank VLAN cells select untagged interfaces. Each configured TX destination requires a matching IPv4 interface; RX requires at least one matching media interface.
+* Existing PTP, clock-source and genlock configuration is preserved during deployment.
 * Excelibur communicates via WebSocket — ensure the AT300 is reachable and configured to accept connections.
-* Timing and synchronization (e.g., PTP) must be configured separately by the user.
+* Processing failures stop the deployment and report an error. A failure after card writes can leave a partially applied configuration; there is no automatic rollback.
 
 ## Desktop Release Naming
 
@@ -209,3 +235,8 @@ Keep the desktop app version in `package.json` aligned with the tag version. For
 <p align="center">
   <img width="180" height="320" alt="image" src="https://github.com/user-attachments/assets/caa1d8a4-d40c-4538-a8b0-a0f9ff42dc53" />
 </p>
+
+## Development checks
+
+With Node.js 24 or newer, run `npm test` to compile and run the regression suite.
+Hardware validation is still required for timing preservation and signal routing.

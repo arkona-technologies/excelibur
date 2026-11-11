@@ -1,4 +1,5 @@
 import * as VAPI from "vapi";
+import { validate_network_config } from "./network-config.js";
 import { base } from "../base.js";
 import { close_connection, open_connection } from "../connection.js";
 import {
@@ -21,10 +22,14 @@ export async function apply_workbook_config(
   config: WorkbookConfig,
   progress?: ProgressReporter | null,
 ) {
+  if (!config.processors_config.length && !config.tx_config.length && !config.rx_config.length) {
+    throw new Error("Workbook contains no configuration rows; refusing to clear the card");
+  }
   const release = await ensure_supported_release(vm);
   progress?.(12, `release ${release}`);
   await ensure_installed_sdk_matches_release(release);
   progress?.(15, "sdk verified");
+  await validate_network_config(vm, config.tx_config, config.rx_config);
   await base(vm);
   progress?.(20, "base setup");
   await setup_processing_chains(

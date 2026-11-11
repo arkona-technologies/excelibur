@@ -164,42 +164,17 @@ export async function setup_timing(vm: VAPI.AT1130.Root) {
 }
 
 export async function base(vm: VAPI.AT1130.Root) {
-  await scrub(vm, { kwl_whitelist: [/system.nmos/, /system.services/] });
-
-  // const ports = await vm.p_t_p_flows.ports.rows();
-  // await Promise.any(
-  //   ports.map((p) =>
-  //     p.active.wait_until((active) => active, {
-  //       timeout: new Duration(1, "min"),
-  //     }),
-  //   ),
-  // );
-  // await setup_timing(vm);
-
-  await setup_timing_freerun(vm);
+  // Preserve operator-owned clock sources, PTP agents and genlock tables.
+  await scrub(vm, {
+    kwl_whitelist: [
+      /system.nmos/, /system.services/,
+      /^(p_t_p_clock|p_t_p_flows|genlock|master_clock|system_clock|time_flows)(?:\.|\[|$)/,
+    ],
+  });
 
   await setup_sdi_io(vm).catch((_) => {});
   await vm.r_t_p_receiver?.settings.clean_switching_policy.write("Whatever");
   await vm.r_t_p_transmitter?.settings.reserved_bandwidth.write(2);
-  await vm.system_clock.t_src.write(vm.p_t_p_clock.output);
-  await vm.system_clock.time_standard.command.write("TAI");
-  const ltc_clock = await vm.master_clock.ltc_generators.create_row();
-  await ltc_clock.t_src.command
-    .write(vm.genlock!.instances.row(0).backend.output)
-    .catch((_) => {});
-  await ltc_clock.frame_rate.command.write("f25");
   await vm.audio_shuffler?.global_cross_fade.write(new Duration(50, "ms"));
-  console.log(`Finished Base Setup @${vm.raw.identify()}`);
-}
-
-async function setup_timing_freerun(vm: VAPI.AT1130.Root) {
-  await vm.p_t_p_clock.mode.write("UseInternalOscillator");
-  for (const genlock of [...vm.genlock!.instances]) {
-    await genlock.t_src.command.write(vm.p_t_p_clock.output);
-  }
-  await vm
-    .genlock!.instances.row(0)
-    .state.wait_until((s) => s == "Calibrated" || s === "FreeRun", {
-      timeout: new Duration(5, "min"),
-    });
+  console.log(`Finished Base Setup @${vm.raw.identify()}; existing timing preserved`);
 }

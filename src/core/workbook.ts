@@ -1,6 +1,6 @@
 import fs from "fs";
 import { enforce } from "vscript";
-import { parse_csv } from "../csv.js";
+import { parse_csv, parse_rows } from "../csv.js";
 import {
   ProcessingChainConfig,
   ReceiverConfig,
@@ -17,13 +17,6 @@ export type WorkbookConfig = {
   rx_config: z.infer<typeof ReceiverConfig>[];
 };
 
-function sheet_to_csv(sheet: { data: any[][] }) {
-  return sheet.data
-    .filter((row: any[]) => row.length > 0)
-    .map((row: any[]) => row.join(","))
-    .join("\n");
-}
-
 export function parse_workbook_buffer(excel: Buffer): WorkbookConfig {
   let raw_config: z.infer<typeof ProcessingChainConfig>[] | null = null;
   let tx_config: z.infer<typeof SenderConfig>[] | null = null;
@@ -32,15 +25,14 @@ export function parse_workbook_buffer(excel: Buffer): WorkbookConfig {
   const parsed_excel = xlsx.parse(excel);
   for (const sheet of parsed_excel) {
     console.log(`Parsing ${sheet.name}: ${sheet.data.length} lines`);
-    const as_csv = sheet_to_csv(sheet);
     if (sheet.name === "PROC") {
-      raw_config = parse_csv(as_csv, ProcessingChainConfig);
+      raw_config = parse_rows(sheet.data, ProcessingChainConfig, sheet.name);
     }
     if (sheet.name === "TX") {
-      tx_config = parse_csv(as_csv, SenderConfig);
+      tx_config = parse_rows(sheet.data, SenderConfig, sheet.name);
     }
     if (sheet.name === "RX") {
-      rx_config = parse_csv(as_csv, ReceiverConfig);
+      rx_config = parse_rows(sheet.data, ReceiverConfig, sheet.name);
     }
   }
 

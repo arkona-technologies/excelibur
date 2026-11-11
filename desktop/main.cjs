@@ -181,6 +181,21 @@ async function ensureServer() {
       port: Number(process.env.PORT || "0"),
       app_root: appRoot,
       dependency_root: dependencyRoot,
+      desktop_file_dialogs: {
+        pick_directory: async (prompt) => {
+          const result = await dialog.showOpenDialog({ title: prompt, properties: ["openDirectory"] });
+          if (result.canceled || !result.filePaths.length) throw new Error("Folder selection cancelled");
+          return result.filePaths[0];
+        },
+        pick_workbooks: async (prompt) => {
+          const result = await dialog.showOpenDialog({
+            title: prompt, properties: ["openFile", "multiSelections"],
+            filters: [{ name: "Excel Workbooks", extensions: ["xlsx"] }],
+          });
+          if (result.canceled || !result.filePaths.length) throw new Error("File selection cancelled");
+          return result.filePaths;
+        },
+      },
       desktop_update_api: {
         get_update_state: getUpdateState,
         check_for_updates: checkForUpdates,

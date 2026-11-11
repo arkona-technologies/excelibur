@@ -69,12 +69,12 @@ async function main() {
   });
 
   const terminate_child = (signal: NodeJS.Signals = "SIGTERM") => {
-    if (child.exitCode !== null || child.killed) {
+    if (child.exitCode !== null || child.signalCode !== null) {
       return;
     }
     child.kill(signal);
     setTimeout(() => {
-      if (child.exitCode === null && !child.killed) {
+      if (child.exitCode === null && child.signalCode === null) {
         child.kill("SIGKILL");
       }
     }, 2000).unref();

@@ -12,6 +12,7 @@ type Options = {
   settings_url: string;
   force: boolean;
   verbose: boolean;
+  wait_seconds_before_capture: number;
 };
 
 let last_render_width = 0;
@@ -66,6 +67,9 @@ Environment variables:
     HTTP or HTTPS endpoint used to download settings.json after each run.
     Default: derived from URL by replacing ws:// with http:// and appending /settings.json.
 
+  WAIT_SECONDS_BEFORE_CAPTURE
+    Settling time before downloading settings, in seconds. Default: 5.
+
   FORCE
     When set to 1, process all workbooks even if matching output .json files already exist.
     Default: 0
@@ -101,7 +105,12 @@ function parse_args(argv: string[]) {
     throw new Error("Need to specify URL, for example URL=ws://172.16.220.211");
   }
 
+  const wait_seconds_before_capture = Number(process.env["WAIT_SECONDS_BEFORE_CAPTURE"] ?? "5");
+  if (!Number.isInteger(wait_seconds_before_capture) || wait_seconds_before_capture < 0) {
+    throw new Error("Capture wait must be a nonnegative integer number of seconds");
+  }
   return {
+    wait_seconds_before_capture,
     url,
     input_dir: process.env["INPUT_DIR"] ?? "./input",
     output_dir: process.env["OUTPUT_DIR"] ?? "./output",
