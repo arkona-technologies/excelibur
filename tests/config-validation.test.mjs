@@ -3,7 +3,7 @@ import test from 'node:test';
 import xlsx from 'node-xlsx';
 import { parse_rows, parse_csv } from '../build/csv.js';
 import { parse_workbook_buffer } from '../build/core/workbook.js';
-import { SenderConfig, ReceiverConfig } from '../build/zod_types.js';
+import { SenderConfig, ReceiverConfig, ProcessingChainConfig, refine_config } from '../build/zod_types.js';
 
 const header = ['id','label','stream_type','primary_destination_address','primary_destination_port','secondary_destination_address','secondary_destination_port','payload_type','vlan_id','channel_count','p_time','bit_depth'];
 const row = [0,'Audio','2110-30','239.1.1.1',5004,'239.2.1.1',5004,96,null,16,'p0_125','L24'];
@@ -41,4 +41,35 @@ test('false sync is honored; blank optional fields use defaults; invalid boolean
   }
   assert.equal(parse_rows([h,[0,'Video','2110-20',false,null]],ReceiverConfig)[0].sync,true);
   assert.throws(()=>parse_rows([h,[0,'Video','2110-20',false,'nope']],ReceiverConfig),/sync/);
+});
+
+const processor = overrides => ProcessingChainConfig.parse({
+  name:'Chain', flow_type:'Video', source_type:'IP-VIDEO', source_id:0,
+  framesync_mode:null, delay_audio_ms:null, delay_video_frames:null,
+  delay_video_ms:null, video_format:'3G', lut_name:null, splitter_phase:null,
+  output_type:'SDI', output_id:0, ...overrides,
+});
+
+test('processor frame sync is required only for SDI video and shared inputs cannot conflict', () => {
+  assert.throws(()=>refine_config([processor({source_type:'SDI'})]),/framesync_mode is required/);
+  assert.throws(()=>refine_config([processor({framesync_mode:'FramePhaser'})]),/must be blank/);
+  assert.doesNotThrow(()=>refine_config([processor({source_type:'SDI',framesync_mode:'FramePhaser'})]));
+  assert.throws(()=>refine_config([
+    processor({source_type:'SDI',framesync_mode:'FramePhaser'}),
+    processor({name:'Other',source_type:'SDI',framesync_mode:'FrameSync_Black'}),
+  ]),/conflicting framesync_mode/);
+});
+
+test('processor delay units follow flow type and video units are mutually exclusive', () => {
+  assert.doesNotThrow(()=>refine_config([processor({delay_video_frames:1})]));
+  assert.doesNotThrow(()=>refine_config([processor({delay_video_ms:100.5})]));
+  assert.throws(()=>refine_config([processor({delay_video_frames:1,delay_video_ms:20})]),/mutually exclusive/);
+  assert.throws(()=>refine_config([processor({delay_audio_ms:20})]),/delay_audio_ms must be blank/);
+  assert.throws(()=>refine_config([processor({flow_type:'Audio',source_type:'IP-AUDIO',output_type:'IP-AUDIO',delay_video_ms:20})]),/video delay fields must be blank/);
+  assert.throws(()=>processor({delay_video_frames:0}),/greater than 0/);
+});
+
+test('legacy processor delay columns are rejected instead of ignored', () => {
+  const header=['name','flow_type','source_type','source_id','delay_frames','video_format','splitter_phase','output_type','output_id'];
+  assert.throws(()=>parse_rows([header,['Old','Video','IP-VIDEO',0,1,'3G',null,'SDI',0]],ProcessingChainConfig),/delay_frames/);
 });

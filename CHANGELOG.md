@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### SDI frame sync and processing delays
+
+- Add native HBM frame-sync configuration for SDI video inputs through the required `framesync_mode` processor column. Supported modes are `FramePhaser`, `FrameSync_Freeze`, and `FrameSync_Black`; Excelibur uses the card's genlock source and de-embeds audio after frame sync.
+- Require `framesync_mode` to be blank for non-SDI and audio rows, and reject conflicting modes when multiple video rows share one physical SDI input.
+- Separate optional processing delay from SDI input synchronization. Video chains accept either `delay_video_frames` or `delay_video_ms`, while audio chains use `delay_audio_ms`; the obsolete `delay_frames` and `delay_audio` columns are rejected.
+- Configure DDR4 Replay video delays with `FrameSync_Freeze`, the bandwidth corresponding to `video_format`, blanking included, and the card's genlock timing source.
+- Apply Replay offsets after connecting their video source so the device can derive the active input standard.
+- Accept Replay delay commands without the SDK's default offset-status validator. The status reports additional buffered delay but excludes inherent frame-sync latency, so valid time requests otherwise time out.
+- Document the verified AT300 delay semantics: frame values request additional buffered frames, while millisecond values request a minimum total Replay latency that is rounded up to a frame boundary.
+- Validate the feature on AT300 2.9.1648: `FrameSync_Freeze` retained the final frame, `FrameSync_Black` produced black, both preserved output standard and timing after physical input loss, and frame/time Replay delays matched their configured commands.
+
+### Spreadsheet documentation
+
+- Document every distributed `PROC`, `TX`, and `RX` template column, its accepted values, defaults, conditional validation, timing behavior, and delay semantics in the public README.
+
 ## 2.9.1 — 2026-11-11
 
 ### Timing

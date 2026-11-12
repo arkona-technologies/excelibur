@@ -5,9 +5,11 @@ node_modules
 *-test
 .env.local
 .DS_Store
+*.code-workspace
 dist
 deployment-output
 output
 input/.DS_Store
+input/*.xlsx
 spreadsheets/.DS_Store
 .local

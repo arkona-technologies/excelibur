@@ -23,6 +23,80 @@ Current operator workflows:
 * `Generate AT300 Config Files`
   Use one reachable AT300 to generate sanitized `settings.json` snapshots for many spreadsheets.
 
+## Spreadsheet Reference
+
+Use the provided `AT300-XLSX-TEMPLATE.xlsx` workbook and keep the `PROC`, `TX`,
+and `RX` sheet names and column headers unchanged. Blank rows are ignored.
+
+### `PROC` — Processing and Routing
+
+Each row defines one video or audio path from a source to an output. Physical
+connector and IP resource IDs are zero-based AT300 indices.
+
+| Column | Description |
+| --- | --- |
+| `source_id` | Source index. Its meaning is selected by `source_type`, for example SDI input 0 or IP video receiver 0. |
+| `source_type` | Source resource: `SDI`, `IP-VIDEO`, `IP-AUDIO`, `PLAYER-VIDEO`, `PLAYER-AUDIO`, `SDI2SI`, `MADI`, or `VOID`. The source must be compatible with `flow_type`. |
+| `name` | User-facing processing-chain name. If blank, Excelibur derives a name from the output and flow type. |
+| `framesync_mode` | Required for `Video` rows whose source is `SDI`; it must be blank on every other row. Choices are `FramePhaser`, `FrameSync_Freeze`, and `FrameSync_Black`. Excelibur configures the native HBM SDI input frame synchronizer against genlock and de-embeds audio after frame sync. |
+| `lut_name` | Optional 3D LUT name for a video chain. Blank disables color correction. If the requested LUT cannot be applied, Excelibur attempts its configured fallback LUT. |
+| `delay_audio_ms` | Optional positive audio delay in milliseconds. Valid only for `Audio` rows. |
+| `delay_video_frames` | Optional positive whole-frame DDR4 Replay delay. Valid only for `Video` rows and mutually exclusive with `delay_video_ms`. This is an additional buffered-frame count beyond Replay's inherent synchronization latency. |
+| `delay_video_ms` | Optional positive DDR4 Replay delay in milliseconds. Valid only for `Video` rows and mutually exclusive with `delay_video_frames`. It requests a minimum total Replay latency; the AT300 rounds the effective delay up to a video-frame boundary. |
+| `video_format` | Video bandwidth class: `1.5G`, `3G`, `6G`, or `12G`. Among other resource decisions, this sets the corresponding maximum-bandwidth constraint on DDR4 Replay delays. Replay delay memory includes blanking. |
+| `splitter_phase` | Optional splitter output phase. Excelibur selects the phase modulo four; when used, the splitter path currently takes precedence over LUT and delay processing on that row. |
+| `output_id` | Destination index selected by `output_type`, for example SDI output 0 or IP video transmitter 0. |
+| `output_type` | Destination resource: `IP-VIDEO`, `IP-AUDIO`, `SDI`, or `MADI`. It must be compatible with `flow_type`. |
+| `flow_type` | `Video` or `Audio`. This determines which sources, outputs, and delay columns are valid. |
+
+If more than one video row references the same physical SDI input, all those
+rows must specify the same `framesync_mode` because frame sync belongs to the
+input interface rather than an individual processing chain.
+
+DDR4 Replay always requires an internal delay mode. Excelibur uses
+`FrameSync_Freeze`, assigns the card's genlock timing source, and writes both
+capacity and output offset. For a time request, the AT300 accounts for Replay's
+inherent synchronization latency and rounds the total to the applicable frame
+boundary. For example, at 1080i50 a 25 ms request produces 40 ms total latency,
+while a 55 ms request produces 80 ms total latency.
+
+### `TX` — RTP Transmitters
+
+Each row configures an RTP transmitter and its network session. TX has no
+`sync` column; transmitter timing comes from the routed source's timing and
+media-clock information.
+
+| Column | Description |
+| --- | --- |
+| `id` | Zero-based transmitter index for the selected `stream_type`. Related video and ST 2110-40 rows use the same ID. |
+| `label` | Transmitter and session name. Existing sessions with the same name are reused. |
+| `stream_type` | `2110-20`, `2110-30`, `2110-40`, `2022-6`, `2042-20`, or `2110-22`. This selects video, audio, metadata, or compressed transport configuration. |
+| `primary_destination_address` | Primary multicast/unicast destination IPv4 address. Blank disables the primary leg. |
+| `primary_destination_port` | Primary UDP destination port. If an enabled destination has a blank port, Excelibur uses 9000. |
+| `secondary_destination_address` | Optional secondary destination IPv4 address for redundant transport. Blank disables the secondary leg. |
+| `secondary_destination_port` | Secondary UDP destination port; defaults to 9000 when the secondary destination is enabled and the port is blank. |
+| `payload_type` | RTP payload type written to each enabled network leg. |
+| `vlan_id` | VLAN used to select matching AT300 media interfaces. Blank means untagged. |
+
+### `RX` — RTP Receivers
+
+Each row configures an RTP receiver and its network session.
+
+| Column | Description |
+| --- | --- |
+| `id` | Zero-based receiver index for the selected `stream_type`. Audio and video intended to be synchronized together use the same ID. |
+| `label` | Receiver and session name. Existing sessions with the same name are reused. |
+| `stream_type` | `2110-20`, `2110-30`, `2110-40`, `2022-6`, `2042-20`, or `2110-22`. |
+| `sync` | `TRUE` or `FALSE`; blank defaults to `TRUE`. Synchronized video uses the AT300 PTP clock with frame-start alignment. Synchronized audio follows an allocated video receiver with the same ID using zero extra delay; if none exists, it falls back to ingress timing. `FALSE` selects ingress timing with a 4 ms read delay. |
+| `uhd` | `TRUE` selects the UHD receiver capability; `FALSE` selects the up-to-3G capability. |
+| `channel_capacity` | Audio receiver channel capacity. Blank defaults to 16; positive integers are accepted subject to firmware capacity. |
+| `switch_type` | Receiver switching behavior: `Patch`, `MakeBeforeBreak`, or `BreakBeforeMake`. Blank defaults to `Patch`. |
+| `vlan_id` | VLAN used to select matching AT300 media interfaces. Blank means untagged. |
+
+All receivers use a 4 ms timing safety margin and a genlock-derived read speed.
+The `sync` field selects receiver readout timing; it does not reconfigure the
+card's PTP, clock-source, or genlock setup.
+
 
 ## Prerequisites
 
@@ -73,6 +147,10 @@ Current desktop packaging status:
 * macOS packaging is set up as a `universal` build for releases
 * one packaged app runs on both Intel and Apple Silicon Macs
 * GitHub Releases are configured as the update feed
+
+<p align="center">
+  <img width="180" height="320" alt="Excelibur desktop application" src="https://github.com/user-attachments/assets/caa1d8a4-d40c-4538-a8b0-a0f9ff42dc53" />
+</p>
 
 ## Local Web UI / Development Server
 
@@ -192,21 +270,3 @@ Behavior:
 * Invalid populated rows stop deployment with validation errors; blank rows are ignored. A failure after card writes may leave a partially applied configuration, without automatic rollback.
 * Excelibur communicates via WebSocket — ensure the AT300 is reachable and configured to accept connections.
 * Timing and synchronization (e.g., PTP) must be configured separately by the user.
-
-## Desktop Release Naming
-
-For the current AT300 `2.9.x` compatibility line, use:
-
-* branch: `release-2.9`
-* tag: `excelibur-2.9.1`
-* GitHub Release title: `Excelibur 2.9.1`
-
-Keep the desktop app version in `package.json` aligned with the tag version. For example:
-
-* `package.json`: `2.9.1`
-* tag: `excelibur-2.9.1`
-
-
-<p align="center">
-  <img width="180" height="320" alt="image" src="https://github.com/user-attachments/assets/caa1d8a4-d40c-4538-a8b0-a0f9ff42dc53" />
-</p>

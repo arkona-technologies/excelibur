@@ -48,6 +48,11 @@ export const VLAN_ID = z
 export const OutputType = z.enum(["IP-VIDEO", "IP-AUDIO", "SDI", "MADI"]);
 
 export const VideoFormat = z.enum(["12G", "6G", "3G", "1.5G"]);
+export const FrameSyncMode = z.enum([
+  "FramePhaser",
+  "FrameSync_Freeze",
+  "FrameSync_Black",
+]);
 export const AudioFormat = z.enum(["p0_125", ...VAPI.Audio.Enums.PacketTime]);
 export const BitFormat = z.enum(["L24", ...VAPI.Audio.Enums.Format]);
 export const SenderConfig = z.object({
@@ -105,6 +110,16 @@ const random_name = () => {
   }
   return str;
 };
+const optional_positive_number = z.preprocess(
+  blank_as_undefined,
+  z.coerce.number().positive().nullable().default(null),
+);
+
+const optional_positive_integer = z.preprocess(
+  blank_as_undefined,
+  z.coerce.number().int().positive().nullable().default(null),
+);
+
 export const ProcessingChainConfig = z.object({
   name: z
     .string()
@@ -117,11 +132,20 @@ export const ProcessingChainConfig = z.object({
   video_format: VideoFormat.nullable().default(null),
   source_id: z.coerce.number().int("source_id needs to be an integer!"),
   lut_name: z.string().nullable().default(null),
-  delay_frames: z.coerce.number().int().nullable().default(null),
+  framesync_mode: z.preprocess(
+    blank_as_undefined,
+    FrameSyncMode.nullable().default(null),
+  ),
+  delay_audio_ms: optional_positive_number,
+  delay_video_frames: optional_positive_integer,
+  delay_video_ms: optional_positive_number,
+  // Retain removed column names so legacy workbooks fail instead of silently
+  // dropping their delay values.
+  delay_audio: z.never().optional(),
+  delay_frames: z.never().optional(),
   samplerate_converter: z.string().nullish().transform((bool_str) => {
     return bool_str?.toLowerCase().trim() == "true";
   }),
-  delay_audio: z.coerce.number().int().nullable().default(null),
   splitter_phase: z.coerce.number().int().nullable(),
   output_type: OutputType,
   channel_count: ChannelCount,
@@ -131,9 +155,55 @@ export const ProcessingChainConfig = z.object({
 export function refine_config(
   configs: z.infer<typeof ProcessingChainConfig>[],
 ): z.infer<typeof ProcessingChainConfig>[] {
+  const sdi_framesync_modes = new Map<number, z.infer<typeof FrameSyncMode>>();
   for (const conf of configs) {
     if (conf.name === "") {
       conf.name = `${conf.output_type}/${conf.output_id}.${conf.flow_type}`;
+    }
+
+    const is_video = conf.flow_type === "Video";
+    const is_sdi_video = is_video && conf.source_type === "SDI";
+    if (is_sdi_video && conf.framesync_mode == null) {
+      throw new Error(
+        `Processing chain "${conf.name}": framesync_mode is required for SDI video sources.`,
+      );
+    }
+    if (!is_sdi_video && conf.framesync_mode != null) {
+      throw new Error(
+        `Processing chain "${conf.name}": framesync_mode must be blank unless this is an SDI video source.`,
+      );
+    }
+    if (is_video && conf.delay_audio_ms != null) {
+      throw new Error(
+        `Processing chain "${conf.name}": delay_audio_ms must be blank for video flows.`,
+      );
+    }
+    if (
+      !is_video &&
+      (conf.delay_video_frames != null || conf.delay_video_ms != null)
+    ) {
+      throw new Error(
+        `Processing chain "${conf.name}": video delay fields must be blank for audio flows.`,
+      );
+    }
+    if (
+      conf.delay_video_frames != null &&
+      conf.delay_video_ms != null
+    ) {
+      throw new Error(
+        `Processing chain "${conf.name}": delay_video_frames and delay_video_ms are mutually exclusive.`,
+      );
+    }
+
+    if (is_sdi_video) {
+      const mode = conf.framesync_mode!;
+      const existing = sdi_framesync_modes.get(conf.source_id);
+      if (existing !== undefined && existing !== mode) {
+        throw new Error(
+          `SDI input ${conf.source_id} has conflicting framesync_mode values: ${existing} and ${mode}.`,
+        );
+      }
+      sdi_framesync_modes.set(conf.source_id, mode);
     }
   }
   return configs;

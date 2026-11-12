@@ -10,7 +10,7 @@ import {
 } from "vscript";
 import assert from "assert";
 import { audio_ref, range, video_ref } from "vutil";
-import { ProcessingChainConfig } from "./zod_types.js";
+import { ProcessingChainConfig, refine_config } from "./zod_types.js";
 import { lock_to_genlock } from "vutil/rtp_receiver.js";
 import { shorten_label, unique_by, unique_by_n } from "./utils.js";
 import { StepProgressReporter } from "./progress.js";
@@ -137,13 +137,31 @@ async function prepare_sdi_ins(
   vm: VAPI.AT1130.Root,
 ) {
   const is_reconfig = await is_reconfigurable_io_board(vm);
+  const framesync_modes = new Map<number, VAPI.Definitions.DelayMode>();
   for (const conf of sdi_ins) {
+    if (conf.flow_type === "Video" && conf.framesync_mode != null) {
+      framesync_modes.set(conf.source_id, conf.framesync_mode);
+    }
+  }
+  for (const conf of sdi_ins.filter(unique_by("source_id"))) {
     if (is_reconfig) {
       await vm.i_o_module?.configuration
         .row(conf.source_id)
         .direction.write("Input");
     }
-    await vm.i_o_module?.input.row(conf.source_id).mode.command.write("SDI");
+    const input = vm.i_o_module?.input.row(conf.source_id);
+    await input?.mode.command.write("SDI");
+    const framesync_mode = framesync_modes.get(conf.source_id);
+    if (framesync_mode !== undefined) {
+      await input?.sdi.framesync.write({
+        variant: "Enabled",
+        value: {
+          t_src: vm.genlock!.instances.row(0).backend.output,
+          audio_deembedder_position: "AfterFrameSync",
+          mode: framesync_mode,
+        },
+      });
+    }
   }
 }
 
@@ -434,7 +452,20 @@ async function setup_processing_chain_video(
     }
   }
 
-  if (config.delay_frames != null) {
+  const video_delay =
+    config.delay_video_frames != null
+      ? {
+          variant: "Frames" as const,
+          value: { frames: config.delay_video_frames },
+        }
+      : config.delay_video_ms != null
+        ? {
+            variant: "Time" as const,
+            value: { time: new Duration(config.delay_video_ms, "ms") },
+          }
+        : null;
+  let pending_delay_output: any = null;
+  if (video_delay !== null) {
     console.log(`[${vm.raw.identify()}] ${config.name}: Adding Delay...`);
     try {
       const delay = await vm.re_play?.video.delays.create_row();
@@ -442,12 +473,8 @@ async function setup_processing_chain_video(
         .write(`${shorten_label(config.name)}.DLY`)
         .catch((_) => {});
       await delay?.capabilities.command.write({
-        delay_mode:
-          config.delay_frames < 2 ? "FramePhaser" : "FrameSync_Freeze",
-        capacity: {
-          variant: "Frames",
-          value: { frames: config.delay_frames },
-        },
+        delay_mode: "FrameSync_Freeze",
+        capacity: video_delay,
         input_caliber: {
           variant: "Single",
           value: {
@@ -455,25 +482,23 @@ async function setup_processing_chain_video(
             constraints: {
               variant: "Bandwidth",
               value: {
-                max_bandwidth: ["12G", "6G"].includes(config.video_format ?? "")
-                  ? "b12_0Gb"
-                  : "b3_0Gb",
+                max_bandwidth:
+                  config.video_format === "12G"
+                    ? "b12_0Gb"
+                    : config.video_format === "6G"
+                      ? ("b6_0Gb" as VAPI.Definitions.Bandwidth)
+                      : config.video_format === "1.5G"
+                        ? "b1_5Gb"
+                        : "b3_0Gb",
               },
             },
           },
         },
       });
       const out = await delay?.outputs.create_row();
-      await out?.t_src.command.write(
-        vm.genlock!.instances.row(0).backend.output,
-      );
-      await out?.delay.offset.command
-        .write({
-          variant: "Frames",
-          value: { frames: config.delay_frames },
-        });
       await set_vsrc(target.command, out!.video);
       target = delay?.inputs.row(0).v_src;
+      pending_delay_output = out;
     } catch (e) {
       console.log(
         `[${vm.raw.identify()}] ${config.name}: Delay Setup failed: `,
@@ -484,6 +509,19 @@ async function setup_processing_chain_video(
   }
 
   if (source) await set_vsrc(target.command, source);
+  if (pending_delay_output !== null) {
+    // Time-based Replay offsets need an established input standard before the
+    // device can calculate and report the effective delay.
+    await pending_delay_output.t_src.command.write(
+      vm.genlock!.instances.row(0).backend.output,
+    );
+    // The SDK's default validator compares the requested total delay with the
+    // additional buffer offset reported by status. Frame-sync latency is not
+    // included in that status, so valid time commands can otherwise time out.
+    await pending_delay_output.delay.offset.command.write(video_delay, {
+      retry_until: { criterion: "return-immediately" },
+    });
+  }
 }
 async function setup_processing_chain_audio(
   vm: VAPI.AT1130.Root,
@@ -558,7 +596,7 @@ async function setup_processing_chain_audio(
   target = gain.a_src;
 
   if (
-    config.delay_audio &&
+    config.delay_audio_ms != null &&
     ((await vm.system.selected_fpga.read()) !== "AUDIO_100GbE" ||
       (config.channel_count && config.channel_count > 16))
   ) {
@@ -571,7 +609,7 @@ async function setup_processing_chain_audio(
     await delay?.capabilities.capacity.command
       .write({
         variant: "Time",
-        value: { time: new Duration(config.delay_audio, "ms") },
+        value: { time: new Duration(config.delay_audio_ms, "ms") },
       });
     await delay?.num_outputs.write(1);
     await delay?.outputs
@@ -583,7 +621,7 @@ async function setup_processing_chain_audio(
   }
 
   if (
-    config.delay_audio &&
+    config.delay_audio_ms != null &&
     (await vm.system.selected_fpga.read()) === "AUDIO_100GbE" &&
     config.channel_count &&
     config.channel_count <= 16
@@ -606,7 +644,9 @@ async function setup_processing_chain_audio(
     const for_delay: VAPI.AudioEngine.DelayParameter[] =
       new Array<VAPI.AudioEngine.DelayParameter>(16).fill({
         variant: "Time",
-        value: { time: new Duration(Math.min(config.delay_audio, 2700), "ms") },
+        value: {
+          time: new Duration(Math.min(config.delay_audio_ms, 2700), "ms"),
+        },
       });
     await delay.delay.write(for_delay);
     await delay.set_input(input_proxy!.output);
@@ -727,6 +767,7 @@ export async function setup_processing_chains(
   config: z.infer<typeof ProcessingChainConfig>[],
   on_progress?: StepProgressReporter,
 ) {
+  refine_config(config);
   console.log(`Preparing ${config.length} Processors`);
   const rtp_audio_ins = config
     .filter((c) => c.source_type === "IP-AUDIO")
@@ -779,7 +820,9 @@ export async function setup_processing_chains(
   const num_vdel = config
     .filter((c) => c.flow_type === "Video")
     .filter((c) => c.output_type === "SDI" || c.output_type === "IP-VIDEO")
-    .filter((c) => c.delay_frames).length;
+    .filter(
+      (c) => c.delay_video_frames != null || c.delay_video_ms != null,
+    ).length;
   const num_adel = config
     .filter((c) => c.flow_type === "Audio")
     .filter(
@@ -788,7 +831,7 @@ export async function setup_processing_chains(
         c.output_type === "IP-AUDIO" ||
         c.output_type === "MADI",
     )
-    .filter((c) => c.delay_frames).length;
+    .filter((c) => c.delay_audio_ms != null).length;
   const num_vtx = config
     .filter((c) => c.output_type === "IP-VIDEO")
     .filter(unique_by("output_id")).length;
