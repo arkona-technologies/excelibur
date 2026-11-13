@@ -33,6 +33,32 @@ test('invalid populated rows fail the workbook with sheet, row and field', () =>
   assert.throws(()=>parse_workbook_buffer(workbook([[],input])),/TX row 3, primary_destination_address/);
 });
 
+test('workbook validation reports independent errors across sheets and processor rows', () => {
+  const procHeader=['name','flow_type','source_type','source_id','video_format','framesync_mode','delay_audio_ms','delay_video_frames','delay_video_ms','splitter_phase','output_type','output_id'];
+  const txHeader=header;
+  const rxHeader=['id','label','stream_type','uhd','sync','channel_capacity','switch_type'];
+  const invalidTx=[...row]; invalidTx[3]='not-an-ip';
+  const buffer=xlsx.build([
+    {name:'PROC',data:[procHeader,
+      ['SDI A','Video','SDI',0,'3G',null,10,null,null,null,'SDI',0],
+      ['Audio A','Audio','IP-AUDIO',0,null,null,null,null,20,null,'IP-AUDIO',0],
+    ]},
+    {name:'TX',data:[txHeader,invalidTx]},
+    {name:'RX',data:[rxHeader,[0,'Video','2110-20','false','invalid',16,'Patch']]},
+  ]);
+  assert.throws(
+    ()=>parse_workbook_buffer(buffer),
+    error => {
+      assert.match(error.message,/TX row 2, primary_destination_address/);
+      assert.match(error.message,/RX row 2, sync/);
+      assert.match(error.message,/SDI A.*framesync_mode is required/);
+      assert.match(error.message,/SDI A.*delay_audio_ms must be blank/);
+      assert.match(error.message,/Audio A.*video delay fields must be blank/);
+      return true;
+    },
+  );
+});
+
 test('false sync is honored; blank optional fields use defaults; invalid boolean rejected', () => {
   const h = ['id','label','stream_type','uhd','sync','channel_capacity','switch_type'];
   for (const value of ['false','FALSE',false]) {

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Add a spreadsheet template download button and bundle `Excelibur_Template.xlsx` with the desktop app; desktop users can save a copy through a native Save dialog.
+- Rename the distributed template to `Excelibur_Template.xlsx` and update README references.
+- Show prominent error summaries with one validation error per line, including underlying runtime errors instead of generic process exit codes.
+- Collect independent workbook validation errors across PROC, TX, and RX, including processor framesync and delay rules, before applying configuration.
+- Scroll to deployment progress on submission, to a green completion message on success, and to the error summary on failure.
+
 ## 2.9.2 — 2026-11-12
 
 ### SDI frame sync and processing delays

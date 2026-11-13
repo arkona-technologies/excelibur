@@ -62,6 +62,7 @@
       "build-resources/icons/**/*",
       "desktop/**/*",
       "web/**/*",
+      "Excelibur_Template.xlsx",
       "package.json"
     ],
     "asarUnpack": [

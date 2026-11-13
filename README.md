@@ -6,7 +6,7 @@ It provides desktop, web, and CLI workflows for generating and applying AT300 co
 
 ## Overview
 
-Excelibur reads structured Excel workbooks (based on the provided `AT300-XLSX-TEMPLATE.xlsx`) and translates their content into configuration commands that can be sent to an AT300 device.
+Excelibur reads structured Excel workbooks (based on the provided `Excelibur_Template.xlsx`) and translates their content into configuration commands that can be sent to an AT300 device.
 These configurations typically include:
 
 * Channel and core allocations
@@ -25,7 +25,7 @@ Current operator workflows:
 
 ## Spreadsheet Reference
 
-Use the provided `AT300-XLSX-TEMPLATE.xlsx` workbook and keep the `PROC`, `TX`,
+Use the provided `Excelibur_Template.xlsx` workbook and keep the `PROC`, `TX`,
 and `RX` sheet names and column headers unchanged. Blank rows are ignored.
 
 ### `PROC` — Processing and Routing
@@ -102,7 +102,7 @@ card's PTP, clock-source, or genlock setup.
 
 * **Node.js** (version ≥ 24 for local web/CLI use)
 * **npm** (bundled with Node.js)
-* A valid `.xlsx` configuration file that follows the `AT300-XLSX-TEMPLATE` structure
+* A valid `.xlsx` configuration file that follows the `Excelibur_Template.xlsx` structure
 * Network reachability to the target AT300 card(s)
 
 
@@ -266,7 +266,7 @@ Behavior:
 
 ## Notes
 
-* The `.xlsx` file must follow the structure of the `AT300-XLSX-TEMPLATE`, including the `PROC`, `TX`, and `RX` sheet names, the expected headers, and compatible data formats.
+* The `.xlsx` file must follow the structure of `Excelibur_Template.xlsx`, including the `PROC`, `TX`, and `RX` sheet names, the expected headers, and compatible data formats.
 * Invalid populated rows stop deployment with validation errors; blank rows are ignored. A failure after card writes may leave a partially applied configuration, without automatic rollback.
 * Excelibur communicates via WebSocket — ensure the AT300 is reachable and configured to accept connections.
 * Timing and synchronization (e.g., PTP) must be configured separately by the user.

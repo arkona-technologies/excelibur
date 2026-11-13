@@ -156,6 +156,7 @@ export function refine_config(
   configs: z.infer<typeof ProcessingChainConfig>[],
 ): z.infer<typeof ProcessingChainConfig>[] {
   const sdi_framesync_modes = new Map<number, z.infer<typeof FrameSyncMode>>();
+  const errors: string[] = [];
   for (const conf of configs) {
     if (conf.name === "") {
       conf.name = `${conf.output_type}/${conf.output_id}.${conf.flow_type}`;
@@ -164,17 +165,17 @@ export function refine_config(
     const is_video = conf.flow_type === "Video";
     const is_sdi_video = is_video && conf.source_type === "SDI";
     if (is_sdi_video && conf.framesync_mode == null) {
-      throw new Error(
+      errors.push(
         `Processing chain "${conf.name}": framesync_mode is required for SDI video sources.`,
       );
     }
     if (!is_sdi_video && conf.framesync_mode != null) {
-      throw new Error(
+      errors.push(
         `Processing chain "${conf.name}": framesync_mode must be blank unless this is an SDI video source.`,
       );
     }
     if (is_video && conf.delay_audio_ms != null) {
-      throw new Error(
+      errors.push(
         `Processing chain "${conf.name}": delay_audio_ms must be blank for video flows.`,
       );
     }
@@ -182,7 +183,7 @@ export function refine_config(
       !is_video &&
       (conf.delay_video_frames != null || conf.delay_video_ms != null)
     ) {
-      throw new Error(
+      errors.push(
         `Processing chain "${conf.name}": video delay fields must be blank for audio flows.`,
       );
     }
@@ -190,21 +191,24 @@ export function refine_config(
       conf.delay_video_frames != null &&
       conf.delay_video_ms != null
     ) {
-      throw new Error(
+      errors.push(
         `Processing chain "${conf.name}": delay_video_frames and delay_video_ms are mutually exclusive.`,
       );
     }
 
-    if (is_sdi_video) {
-      const mode = conf.framesync_mode!;
+    if (is_sdi_video && conf.framesync_mode != null) {
+      const mode = conf.framesync_mode;
       const existing = sdi_framesync_modes.get(conf.source_id);
       if (existing !== undefined && existing !== mode) {
-        throw new Error(
+        errors.push(
           `SDI input ${conf.source_id} has conflicting framesync_mode values: ${existing} and ${mode}.`,
         );
       }
       sdi_framesync_modes.set(conf.source_id, mode);
     }
+  }
+  if (errors.length) {
+    throw new Error(`Invalid configuration:\n${errors.join("\n")}`);
   }
   return configs;
 }

@@ -1,6 +1,5 @@
 import fs from "fs";
-import { enforce } from "vscript";
-import { parse_csv, parse_rows } from "../csv.js";
+import { parse_csv, parse_rows_report } from "../csv.js";
 import {
   ProcessingChainConfig,
   ReceiverConfig,
@@ -18,28 +17,54 @@ export type WorkbookConfig = {
 };
 
 export function parse_workbook_buffer(excel: Buffer): WorkbookConfig {
-  let raw_config: z.infer<typeof ProcessingChainConfig>[] | null = null;
-  let tx_config: z.infer<typeof SenderConfig>[] | null = null;
-  let rx_config: z.infer<typeof ReceiverConfig>[] | null = null;
+  let raw_config: z.infer<typeof ProcessingChainConfig>[] = [];
+  let tx_config: z.infer<typeof SenderConfig>[] = [];
+  let rx_config: z.infer<typeof ReceiverConfig>[] = [];
+  const found = new Set<string>();
+  const errors: string[] = [];
 
   const parsed_excel = xlsx.parse(excel);
   for (const sheet of parsed_excel) {
     console.log(`Parsing ${sheet.name}: ${sheet.data.length} lines`);
     if (sheet.name === "PROC") {
-      raw_config = parse_rows(sheet.data, ProcessingChainConfig, sheet.name);
+      found.add(sheet.name);
+      const report = parse_rows_report(sheet.data, ProcessingChainConfig, sheet.name);
+      raw_config.push(...report.data);
+      errors.push(...report.errors);
     }
     if (sheet.name === "TX") {
-      tx_config = parse_rows(sheet.data, SenderConfig, sheet.name);
+      found.add(sheet.name);
+      const report = parse_rows_report(sheet.data, SenderConfig, sheet.name);
+      tx_config.push(...report.data);
+      errors.push(...report.errors);
     }
     if (sheet.name === "RX") {
-      rx_config = parse_rows(sheet.data, ReceiverConfig, sheet.name);
+      found.add(sheet.name);
+      const report = parse_rows_report(sheet.data, ReceiverConfig, sheet.name);
+      rx_config.push(...report.data);
+      errors.push(...report.errors);
     }
   }
 
-  enforce(!!raw_config && !!tx_config && !!rx_config);
+  for (const name of ["PROC", "TX", "RX"]) {
+    if (!found.has(name)) errors.push(`${name}: missing worksheet`);
+  }
+
+  let processors_config = raw_config;
+  try {
+    processors_config = refine_config(raw_config);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    errors.push(...message.replace(/^Invalid configuration:\n?/, "").split("\n"));
+  }
+
+  if (errors.length) {
+    throw new Error(`Invalid configuration:\n${errors.join("\n")}`);
+  }
+
   return {
     raw_config,
-    processors_config: refine_config(raw_config),
+    processors_config,
     tx_config,
     rx_config,
   };

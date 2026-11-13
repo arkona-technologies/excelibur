@@ -1,16 +1,18 @@
 import z from "zod";
 
 /** Parse cell arrays without losing commas, quotes or newlines inside XLSX cells. */
-export function parse_rows<T extends z.ZodRawShape>(
+export function parse_rows_report<T extends z.ZodRawShape>(
   rows: unknown[][],
   schema: z.ZodObject<T>,
   source = "CSV",
-): z.infer<typeof schema>[] {
+): { data: z.infer<typeof schema>[]; errors: string[] } {
   const cells = rows.map(row => Array.from(row, value =>
     value == null ? null : String(value).trim() || null));
   const keys = Object.keys(schema.shape);
   const header_index = cells.findIndex(row => keys.filter(key => row.includes(key)).length > 3);
-  if (header_index < 0) throw new Error(`${source}: missing configuration header`);
+  if (header_index < 0) {
+    return { data: [], errors: [`${source}: missing configuration header`] };
+  }
   const header = cells[header_index];
   const parsed: z.infer<typeof schema>[] = [];
   const errors: string[] = [];
@@ -27,8 +29,19 @@ export function parse_rows<T extends z.ZodRawShape>(
     else errors.push(...result.error.issues.map(issue =>
       `${source} row ${index + 1}, ${issue.path.join(".")}: ${issue.message}`));
   }
-  if (errors.length) throw new Error(`Invalid configuration:\n${errors.join("\n")}`);
-  return parsed;
+  return { data: parsed, errors };
+}
+
+export function parse_rows<T extends z.ZodRawShape>(
+  rows: unknown[][],
+  schema: z.ZodObject<T>,
+  source = "CSV",
+): z.infer<typeof schema>[] {
+  const report = parse_rows_report(rows, schema, source);
+  if (report.errors.length) {
+    throw new Error(`Invalid configuration:\n${report.errors.join("\n")}`);
+  }
+  return report.data;
 }
 
 export function parse_csv<T extends z.ZodRawShape>(

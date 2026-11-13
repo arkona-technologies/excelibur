@@ -1,4 +1,5 @@
 const path = require("node:path");
+const fs = require("node:fs/promises");
 const { app, BrowserWindow, Menu, dialog } = require("electron");
 const { autoUpdater } = require("electron-updater");
 
@@ -194,6 +195,16 @@ async function ensureServer() {
           });
           if (result.canceled || !result.filePaths.length) throw new Error("File selection cancelled");
           return result.filePaths;
+        },
+        save_template: async (sourcePath, suggestedName) => {
+          const result = await dialog.showSaveDialog({
+            title: "Save Excelibur Spreadsheet Template",
+            defaultPath: path.join(app.getPath("documents"), suggestedName),
+            filters: [{ name: "Excel Workbooks", extensions: ["xlsx"] }],
+          });
+          if (result.canceled || !result.filePath) throw new Error("Template save cancelled");
+          await fs.copyFile(sourcePath, result.filePath);
+          return result.filePath;
         },
       },
       desktop_update_api: {

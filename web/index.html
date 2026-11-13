@@ -145,6 +145,12 @@
             id="add-workbooks"
             title="Add another spreadsheet-to-AT300 mapping row."
           >Add AT300(s)</button>
+          <button
+            type="button"
+            class="secondary"
+            id="download-template"
+            title="Save a fresh copy of the Excelibur configuration spreadsheet template."
+          >Download Spreadsheet Template</button>
         </div>
 
         <form id="deployment-form">
@@ -176,12 +182,17 @@
       </section>
 
       <section class="panel progress-panel hidden" id="progress-panel">
+        <div class="success-summary hidden" id="success-summary" role="status">Configuration completed successfully</div>
         <div class="progress-summary" id="progress-summary">IDLE - Ready (0%)</div>
         <progress id="job-progress" value="0" max="100"></progress>
       </section>
 
       <section class="panel output-panel">
         <h2>Output</h2>
+        <div class="error-summary hidden" id="error-summary" role="alert">
+          <strong>Configuration failed</strong>
+          <span id="error-summary-message"></span>
+        </div>
         <pre id="output">Ready.</pre>
       </section>
 
@@ -226,6 +237,10 @@
 
     <script>
       const output = document.getElementById("output");
+      const outputPanel = document.querySelector(".output-panel");
+      const errorSummary = document.getElementById("error-summary");
+      const errorSummaryMessage = document.getElementById("error-summary-message");
+      const downloadTemplate = document.getElementById("download-template");
       const jobsList = document.getElementById("jobs-list");
       const deploymentRows = document.getElementById("deployment-rows");
       const deploymentRowTemplate = document.getElementById("deployment-row-template");
@@ -246,7 +261,23 @@
       function setStatus(text) {
       }
 
+      function showJobError(message) {
+        errorSummaryMessage.textContent = message || "The job failed. Review the log below for details.";
+        errorSummary.classList.remove("hidden");
+        scrollToOutput();
+      }
+
+      function scrollToOutput() {
+        outputPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      function clearJobError() {
+        errorSummary.classList.add("hidden");
+        errorSummaryMessage.textContent = "";
+      }
+
       function setProgressSummary(text, percent = 0) {
+        document.getElementById("success-summary").classList.toggle("hidden", !String(text).startsWith("COMPLETED"));
         progressSummary.textContent = text;
         jobProgress.value = Math.max(0, Math.min(100, Number(percent) || 0));
         const normalized = String(text || "").toUpperCase();
@@ -656,6 +687,7 @@
       }
 
       function renderJob(job) {
+        clearJobError();
         const lines = [
           `Job: ${job.id}`,
           `Type: ${job.type}`,
@@ -674,12 +706,18 @@
 
         if (job.error) {
           lines.push("", "Error:", job.error);
+          showJobError(job.error);
+        } else if (job.status === "failed") {
+          showJobError("The job failed. Review the log below for details.");
         }
 
         output.textContent = lines.join("\n");
         const summary = `${job.status.toUpperCase()} - ${job.summary} (${job.progress_percent}%)`;
         setStatus(summary);
         setProgressSummary(summary, job.progress_percent);
+        if (job.status === "completed") {
+          progressPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       }
 
       async function refreshJobs() {
@@ -698,6 +736,30 @@
           jobsList.appendChild(article);
         }
       }
+
+      downloadTemplate.addEventListener("click", async () => {
+        clearJobError();
+        downloadTemplate.disabled = true;
+        try {
+          const payload = await postJson("/api/save-spreadsheet-template", {});
+          if (payload.download_url) {
+            const link = document.createElement("a");
+            link.href = payload.download_url;
+            link.download = "Excelibur_Template.xlsx";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            output.textContent = "Spreadsheet template download started.";
+          } else {
+            output.textContent = `Spreadsheet template saved to ${payload.saved_path}`;
+          }
+        } catch (error) {
+          output.textContent = error.message;
+          showJobError(error.message);
+        } finally {
+          downloadTemplate.disabled = false;
+        }
+      });
 
       async function pollJob(jobId) {
         stopPolling();
@@ -922,6 +984,8 @@
           stopPolling();
           setStatus("Submitting deployment job...");
           setProgressSummary("PENDING - Submitting deployment job... (0%)", 0);
+          clearJobError();
+          progressPanel.scrollIntoView({ behavior: "smooth", block: "start" });
           output.textContent = "Submitting deployment job...";
           try {
             const payload = await postJson("/api/deploy-jobs", {
@@ -932,6 +996,7 @@
           } catch (error) {
             setStatus("Deployment submission failed");
             output.textContent = error.message;
+            showJobError(error.message);
           }
         });
 
@@ -1145,6 +1210,26 @@
         margin: 0;
       }
 
+      .error-summary {
+        display: grid;
+        gap: 0.3rem;
+        padding: 0.9rem 1rem;
+        border: 1px solid rgba(255, 92, 92, 0.55);
+        border-radius: 0.75rem;
+        background: var(--at300-red-soft);
+        color: var(--at300-red);
+      }
+
+      .error-summary.hidden {
+        display: none;
+      }
+
+      .error-summary span {
+        color: var(--at300-text);
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+      }
+
       .update-utility {
         position: relative;
       }
@@ -1203,6 +1288,21 @@
       }
 
       .progress-panel.hidden {
+        display: none;
+      }
+
+      .success-summary {
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid var(--at300-green);
+        border-radius: 0.75rem;
+        background: var(--at300-green-soft);
+        color: var(--at300-green);
+        font-size: 1.3rem;
+        font-weight: 700;
+      }
+
+      .success-summary.hidden {
         display: none;
       }
 

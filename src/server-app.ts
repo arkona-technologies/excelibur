@@ -4,6 +4,7 @@ import FormBody from "@fastify/formbody";
 import * as VAPI from "vapi";
 import Fastify from "fastify";
 import { execFile } from "child_process";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
 import { promisify } from "util";
@@ -51,6 +52,7 @@ type DesktopUpdateApi = {
 type DesktopFileDialogs = {
   pick_directory: (prompt: string) => Promise<string>;
   pick_workbooks: (prompt: string) => Promise<string[]>;
+  save_template?: (source_path: string, suggested_name: string) => Promise<string>;
 };
 
 type BuildServerOptions = {
@@ -182,6 +184,8 @@ async function apply_uploaded_workbook(req: any) {
 export function buildServer(options?: BuildServerOptions) {
   const app_root = options?.app_root ?? default_app_root;
   const dependency_root = options?.dependency_root ?? app_root;
+  const template_name = "Excelibur_Template.xlsx";
+  const template_path = path.join(app_root, template_name);
   const fastify = Fastify({
     bodyLimit: 1e6,
     caseSensitive: false,
@@ -307,6 +311,38 @@ export function buildServer(options?: BuildServerOptions) {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Workbook selection cancelled";
+      reply.code(400);
+      return { ok: false, message };
+    }
+  });
+
+  fastify.get("/api/spreadsheet-template", async (_req, reply) => {
+    try {
+      await fs.promises.access(template_path, fs.constants.R_OK);
+      return reply
+        .header("Content-Disposition", `attachment; filename="${template_name}"`)
+        .type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        .send(fs.createReadStream(template_path));
+    } catch {
+      reply.code(404);
+      return { ok: false, message: "The Excelibur spreadsheet template is not available." };
+    }
+  });
+
+  fastify.post("/api/save-spreadsheet-template", async (_req, reply) => {
+    if (!options?.desktop_file_dialogs?.save_template) {
+      return { ok: true, download_url: "/api/spreadsheet-template" };
+    }
+
+    try {
+      await fs.promises.access(template_path, fs.constants.R_OK);
+      const saved_path = await options.desktop_file_dialogs.save_template(
+        template_path,
+        template_name,
+      );
+      return { ok: true, saved_path };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Template save cancelled";
       reply.code(400);
       return { ok: false, message };
     }

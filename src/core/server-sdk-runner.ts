@@ -19,6 +19,29 @@ type RunnerHooks = {
 
 const PROGRESS_PREFIX = "__EXCELIBUR_PROGRESS__|";
 
+function extract_runtime_error(stderr: string) {
+  const lines = stderr.split(/\r?\n/).map((line) => line.trim());
+  let error_index = -1;
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    if (lines[index]!.startsWith("Error:")) {
+      error_index = index;
+      break;
+    }
+  }
+  if (error_index < 0) {
+    return null;
+  }
+
+  const details = [lines[error_index]!.slice("Error:".length).trim()];
+  for (const line of lines.slice(error_index + 1)) {
+    if (!line || line.startsWith("at ") || line.startsWith("Node.js ") || line === "^") {
+      break;
+    }
+    details.push(line);
+  }
+  return details.filter(Boolean).join("\n") || null;
+}
+
 function relay_stream(
   stream: NodeJS.ReadableStream | null,
   on_log?: (message: string) => void,
@@ -106,6 +129,10 @@ async function run_node_process(options: {
     });
 
     let settled = false;
+    let stderr = "";
+    child.stderr?.on("data", (chunk) => {
+      stderr = `${stderr}${chunk.toString()}`.slice(-32_768);
+    });
 
     const terminate_child = (signal: NodeJS.Signals = "SIGTERM") => {
       if (child.exitCode !== null || child.signalCode !== null) {
@@ -159,7 +186,12 @@ async function run_node_process(options: {
         resolve();
         return;
       }
-      reject(new Error(`Runtime process exited with code ${code ?? "unknown"}`));
+      reject(
+        new Error(
+          extract_runtime_error(stderr) ??
+            `Runtime process exited with code ${code ?? "unknown"}`,
+        ),
+      );
     });
   });
 }
