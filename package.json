@@ -1,6 +1,6 @@
 {
   "name": "excelibur",
-  "version": "2.9.2",
+  "version": "2.9.3",
   "description": "Excelibur desktop tooling for generating and applying AT300 configurations.",
   "author": "Arkona Technologies",
   "homepage": "https://github.com/arkona-technologies/excelibur",
@@ -66,6 +66,7 @@
       "package.json"
     ],
     "asarUnpack": [
+      "Excelibur_Template.xlsx",
       "build/**/*",
       "build-resources/icons/**/*",
       "node_modules/bufferutil/**/*",

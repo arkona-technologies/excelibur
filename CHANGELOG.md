@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.9.3 — 2026-11-13
 
 - Add a spreadsheet template download button and bundle `Excelibur_Template.xlsx` with the desktop app; desktop users can save a copy through a native Save dialog.
 - Rename the distributed template to `Excelibur_Template.xlsx` and update README references.
